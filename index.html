@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Cricket Guru</title>
+<style>
+:root{--bg:#0a1428;--card:#111f3d;--line:#22345c;--tx:#fff;--mut:#9fb0d0;--g:#22c55e;--warn:#f59e0b;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:radial-gradient(900px 400px at 80% -10%,#12366b55,transparent),var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.w{max-width:1000px;margin:0 auto;padding:16px}
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:#0a1428ee;backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .w{display:flex;align-items:center;gap:8px;padding:10px 16px}
+.logo{font-weight:800;white-space:nowrap;cursor:pointer}.logo b{color:var(--g)}
+.links{display:flex;gap:4px;overflow-x:auto;margin-left:auto;scrollbar-width:none}
+.links a{color:var(--mut);text-decoration:none;padding:6px 10px;border-radius:8px;font-size:14px;white-space:nowrap}
+.links a.on{background:var(--card);color:var(--g)}
+h1{font-size:clamp(30px,7vw,52px);line-height:1.1;margin:.3em 0}h2{margin:.2em 0 .6em}
+.mut{color:var(--mut)}.hero{padding:36px 0 20px;animation:up .6s both}
+@keyframes up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.btn{background:var(--g);color:#052e16;border:0;font-weight:700;padding:12px 20px;border-radius:12px;cursor:pointer;font-size:16px;text-decoration:none;display:inline-block;transition:transform .15s}
+.btn:hover{transform:translateY(-2px)}.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn.s{background:transparent;color:var(--tx);border:1px solid var(--line)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;animation:up .5s both}
+.ico{font-size:28px}
+.note{border:1px solid var(--warn);background:#f59e0b18;border-radius:12px;padding:10px 14px;margin:14px 0;font-size:14px}
+.note.ok{border-color:var(--g);background:#22c55e18}.note.err{border-color:#ef4444;background:#ef444418}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:#f59e0b33;color:var(--warn);letter-spacing:.05em}
+.tag.g{background:#22c55e33;color:var(--g)}.tag.r{background:#ef444433;color:#f87171}
+.seg{display:flex;gap:8px;flex-wrap:wrap}.seg button{flex:1;min-width:90px;background:var(--bg);color:var(--tx);border:1px solid var(--line);padding:10px;border-radius:10px;cursor:pointer;font-size:15px}
+.seg button.on{border-color:var(--g);color:var(--g);background:#22c55e14}
+.drop{border:2px dashed var(--line);border-radius:16px;padding:30px 16px;text-align:center;cursor:pointer;transition:.2s}
+.drop.over,.drop:hover{border-color:var(--g);background:#22c55e10}
+video{width:100%;border-radius:12px;background:#000;max-height:340px}
+.bar{height:8px;background:var(--bg);border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;background:var(--g);transition:width .6s}
+label{display:block;margin:14px 0 6px;font-weight:600}
+.chat{height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:6px}
+.msg{max-width:85%;padding:10px 12px;border-radius:14px;background:var(--bg);align-self:flex-start;font-size:15px}
+.msg.me{align-self:flex-end;background:var(--g);color:#052e16}
+input[type=text]{flex:1;min-width:0;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:16px}
+.cols{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.hist{display:flex;align-items:flex-end;gap:10px;height:110px}.hist div{flex:1;background:linear-gradient(var(--g),#15803d);border-radius:6px 6px 0 0;opacity:.6}
+.spin{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--g);border-radius:50%;display:inline-block;animation:sp .8s linear infinite;vertical-align:-3px;margin-right:8px}@keyframes sp{to{transform:rotate(360deg)}}.fe{color:#f87171;font-size:14px;margin-top:6px}
+.consent{position:fixed;left:0;right:0;bottom:0;z-index:9;background:#0d1b36;border-top:1px solid var(--g);padding-bottom:env(safe-area-inset-bottom,0px)}
+.ann{background:#22c55e22;border-bottom:1px solid var(--g);text-align:center;padding:8px 16px;font-size:14px}
+.f{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;font-size:16px}
+.li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)}.li:first-child{border-top:0}
+.star{color:#fbbf24;letter-spacing:2px}.btn.d{background:#ef4444;color:#fff}code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12px}
+.dt{border-collapse:collapse;font-size:13px;width:100%}.dt th,.dt td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}.dt th{color:var(--g);position:sticky;top:0;background:var(--card)}
+footer{text-align:center;color:var(--mut);font-size:13px;padding:30px 16px}
+ul{padding-left:18px;margin:6px 0}li{margin:4px 0}
+</style></head>
+<body><div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script type="text/plain" id="src">
+const {useState,useEffect,useRef}=React;
+type Route='home'|'upload'|'dashboard'|'report'|'coach'|'about'|'admin';
+type Kind='batting'|'bowling';
+type Status='Ready for Upload'|'Processing Demo'|'Analysis Unavailable';
+interface Vid{id:string;name:string;kind:Kind;angle:string;size:number;date:string;status:Status;url?:string;sample?:boolean}
+
+/* ---- Integration seams (nothing is connected yet) ----
+   Later: implement with Supabase Auth, Storage (private bucket + signed URLs),
+   and a Postgres table for videos/reports. Keys live server-side only. */
+interface VideoStorage{upload(f:File,userId:string):Promise<{path:string}>}
+interface AnalysisService{request(path:string):Promise<{reportId:string}>}
+const notConnected=()=>Promise.reject(new Error('Backend not connected yet'));
+const services={storage:{upload:notConnected} as VideoStorage,analysis:{request:notConnected} as AnalysisService};
+
+const MAX_MB=200, OK_TYPES=['video/mp4','video/quicktime','video/webm'];
+const mb=(n:number)=>(n/1048576).toFixed(1)+' MB';
+const SAMPLE:Vid[]=[
+ {id:'s1',name:'cover-drive-nets.mp4',kind:'batting',angle:'Side View',size:48e6,date:'Sample',status:'Processing Demo',sample:true},
+ {id:'s2',name:'fast-bowling-run-up.mov',kind:'bowling',angle:'Rear View',size:92e6,date:'Sample',status:'Analysis Unavailable',sample:true},
+ {id:'s3',name:'pull-shot-practice.webm',kind:'batting',angle:'Front View',size:31e6,date:'Sample',status:'Ready for Upload',sample:true}];
+
+const Demo=({t='DEMO DATA'}:{t?:string})=><span className="tag">{t}</span>;
+const Note=({k='',children}:{k?:string;children:any})=><div className={'note '+k} role={k==='err'?'alert':'status'}>{children}</div>;
+const Status=({s}:{s:Status})=><span className={'tag '+(s==='Analysis Unavailable'?'r':s==='Ready for Upload'?'g':'')}>{s.toUpperCase()}</span>;
+
+function Nav({route}:{route:Route}){
+ const L:[Route,string][]=[['home','Home'],['upload','Upload'],['dashboard','Dashboard'],['report','Report'],['coach','AI Coach'],['about','About']];
+ return <nav><div className="w"><div className="logo" onClick={()=>location.hash='home'}>🏏 AI Cricket <b>Guru</b></div>
+ <div className="links">{L.map(([r,l])=><a key={r} href={'#'+r} className={route===r?'on':''}>{l}</a>)}</div></div></nav>;
+}
+
+/* ---- Supabase REST helper (publishable key only; admin actions need a logged-in admin token + RLS) ---- */
+async function api(path:string,o:{method?:string;body?:any;token?:string;prefer?:string}={}){
+ const h:any={apikey:SUPABASE_KEY,'Content-Type':'application/json'};
+ if(o.token)h.Authorization='Bearer '+o.token;
+ if(o.prefer)h.Prefer=o.prefer;
+ const r=await fetch(SUPABASE_URL+path,{method:o.method||'GET',headers:h,body:o.body?JSON.stringify(o.body):undefined});
+ if(!r.ok){let m='';try{const j=await r.json();m=j.message||j.msg||j.error_description||''}catch{}
+  throw Object.assign(new Error(m||`Request failed (${r.status})`),{status:r.status})}
+ const t=await r.text();return {data:(t?JSON.parse(t):null) as any,range:r.headers.get('content-range')};
+}
+interface Feature{id:string;icon:string;title:string;description:string;badge:string;sort:number;active:boolean}
+interface Review{id:string;author:string;rating:number;comment:string;published:boolean;created_at:string}
+interface Site{status:'loading'|'ok'|'error';features:Feature[];reviews:Review[];announcement:string}
+const DEFAULTS:Feature[]=[['🏏','Batting Analysis','Stance, backlift, head position and shot balance.'],['🎯','Bowling Analysis','Run-up, load-up, release and follow-through.'],['🤖','AI Coaching','Ask technique questions and get drills.'],['📈','Progress Tracking','Compare sessions and spot trends.']].map(([icon,title,description],i)=>({id:'d'+i,icon,title,description,badge:'COMING SOON',sort:i,active:true}));
+async function loadSite():Promise<Site>{
+ try{
+  const [f,r,s]=await Promise.all([api('/rest/v1/features?select=*&active=eq.true&order=sort.asc,created_at.asc'),api('/rest/v1/reviews?select=*&published=eq.true&order=created_at.desc&limit=50'),api('/rest/v1/site_settings?select=*&key=eq.announcement')]);
+  return {status:'ok',features:f.data,reviews:r.data,announcement:s.data?.[0]?.value||''};
+ }catch{return {status:'error',features:[],reviews:[],announcement:''}}
+}
+const Stars=({n}:{n:number})=><span className="star" aria-label={n+' out of 5 stars'}>{'★'.repeat(n)+'☆'.repeat(5-n)}</span>;
+
+function Home({site}:{site:Site}){
+ const F=site.status==='ok'?site.features:DEFAULTS;
+ const R=site.reviews,avg=R.length?R.reduce((a,r)=>a+r.rating,0)/R.length:0;
+ return <div className="w"><div className="hero">
+  <span className="tag g">FOR PLAYERS ACROSS INDIA</span>
+  <h1>Improve Your Cricket. <span style={{color:'var(--g)'}}>One Video at a Time.</span></h1>
+  <p className="mut" style={{maxWidth:560}}>Upload your batting or bowling video and start your journey toward better technique.</p>
+  <div className="row"><a className="btn" href="#upload">Analyze My Video</a><a className="btn s" href="#features">Explore Features</a></div></div>
+  <Note>🚧 <b>AI analysis is under development.</b> You can prepare videos and explore the interface today, but no real technique analysis is performed yet. All scores and reports shown are demo data.</Note>
+  {site.status==='error'&&<Note>Live content couldn’t be loaded, so default content is shown.</Note>}
+  <h2 id="features">Features</h2>
+  {site.status==='ok'&&F.length===0?<Note>No features to show yet.</Note>:
+  <div className="grid">{F.map(f=><div className="card" key={f.id}><div className="ico">{f.icon}</div><h3>{f.title}</h3><p className="mut">{f.description}</p>{f.badge&&<span className="tag">{f.badge}</span>}</div>)}</div>}
+  {site.status==='ok'&&<><h2 style={{marginTop:28}}>Ratings &amp; Reviews</h2>
+  {R.length===0?<Note>No reviews yet.</Note>:<>
+   <p><b style={{fontSize:28}}>{avg.toFixed(1)}</b> <Stars n={Math.round(avg)}/> <span className="mut">· {R.length} review{R.length>1?'s':''}</span></p>
+   <div className="grid">{R.map(r=><div className="card" key={r.id}><Stars n={r.rating}/><p style={{margin:'6px 0'}}>{r.comment}</p><div className="mut" style={{fontSize:14}}>— {r.author}</div></div>)}</div></>}</>}
+ </div>;
+}
+
+/* ---- Admin ---- */
+const SKEY='cg_admin';
+interface Sess{token:string;email:string}
+function useRows(path:string,token:string,out:(m:string)=>void){
+ const [rows,setRows]=useState<any[]|null>(null),[err,setErr]=useState('');
+ const load=async()=>{try{setErr('');setRows((await api(path,{token})).data)}catch(e:any){if(e.status===401)out('Session expired. Please log in again.');setErr(e.message)}};
+ useEffect(()=>{load()},[path]);
+ return {rows,err,load};
+}
+function useAct(out:(m:string)=>void,done:()=>void){
+ const [busy,setBusy]=useState(false),[m,setM]=useState<{k:string;t:string}|null>(null);
+ const run=async(fn:()=>Promise<any>,ok:string)=>{setBusy(true);setM(null);
+  try{await fn();setM({k:'ok',t:ok});done()}catch(e:any){if(e.status===401)return out('Session expired. Please log in again.');setM({k:'err',t:e.message})}finally{setBusy(false)}};
+ return {busy,m,run};
+}
+const Msg=({m}:{m:{k:string;t:string}|null})=>m?<Note k={m.k==='ok'?'ok':'err'}>{m.t}</Note>:null;
+type TabP={token:string;out:(m:string)=>void;onChange:()=>void};
+
+function FeaturesTab({token,out,onChange}:TabP){
+ const {rows,err,load}=useRows('/rest/v1/features?select=*&order=sort.asc,created_at.asc',token,out);
+ const {busy,m,run}=useAct(out,()=>{load();onChange()});
+ const [icon,setIcon]=useState('⭐'),[title,setTitle]=useState(''),[desc,setDesc]=useState(''),[badge,setBadge]=useState(''),[ve,setVe]=useState('');
+ function add(ev:any){ev.preventDefault();
+  if(!title.trim())return setVe('Title is required.');if(title.length>60||desc.length>200)return setVe('Title max 60, description max 200 characters.');
+  setVe('');run(async()=>{await api('/rest/v1/features',{method:'POST',token,prefer:'return=minimal',body:{icon:icon||'⭐',title:title.trim(),description:desc.trim(),badge:badge.trim(),sort:((rows?.length||0)+1)*10}});setTitle('');setDesc('');setBadge('')},'Feature added.')}
+ return <div>
+  <form className="card" onSubmit={add} noValidate><h3>Add feature</h3>
+   <div className="row"><input className="f" style={{width:70}} maxLength={8} value={icon} onChange={e=>setIcon(e.target.value)} aria-label="Icon"/><input className="f" style={{flex:1,minWidth:160}} placeholder="Title" maxLength={60} value={title} onChange={e=>setTitle(e.target.value)}/></div>
+   <textarea className="f" style={{marginTop:8}} rows={2} placeholder="Description" maxLength={200} value={desc} onChange={e=>setDesc(e.target.value)}/>
+   <input className="f" style={{marginTop:8}} placeholder="Badge (optional, e.g. COMING SOON)" maxLength={20} value={badge} onChange={e=>setBadge(e.target.value)}/>
+   {ve&&<div className="fe" role="alert">⚠ {ve}</div>}<button className="btn" style={{marginTop:10}} disabled={busy}>{busy?'Saving…':'Add feature'}</button></form>
+  <Msg m={m}/>{err&&<Note k="err">{err}</Note>}
+  {rows===null&&!err?<p className="mut" role="status"><span className="spin"/>Loading…</p>:rows&&rows.length===0?<Note>No features yet.</Note>:
+  <div className="card" style={{marginTop:14}}>{rows?.map((f:Feature)=><div className="li" key={f.id}><div style={{minWidth:0}}><b>{f.icon} {f.title}</b> {!f.active&&<span className="tag r">HIDDEN</span>}<div className="mut" style={{fontSize:13}}>{f.description}</div></div>
+   <div className="row" style={{flexShrink:0}}><button className="btn s" disabled={busy} style={{padding:'6px 10px',fontSize:13}} onClick={()=>run(()=>api('/rest/v1/features?id=eq.'+f.id,{method:'PATCH',token,body:{active:!f.active},prefer:'return=minimal'}),f.active?'Feature hidden.':'Feature shown.')}>{f.active?'Hide':'Show'}</button>
+   <button className="btn d" disabled={busy} style={{padding:'6px 10px',fontSize:13}} onClick={()=>{if(confirm(`Delete “${f.title}”? This can’t be undone.`))run(()=>api('/rest/v1/features?id=eq.'+f.id,{method:'DELETE',token}),'Feature deleted.')}}>Delete</button></div></div>)}</div>}
+ </div>;
+}
+
+function ReviewsTab({token,out,onChange}:TabP){
+ const {rows,err,load}=useRows('/rest/v1/reviews?select=*&order=created_at.desc',token,out);
+ const {busy,m,run}=useAct(out,()=>{load();onChange()});
+ const [author,setAuthor]=useState(''),[rating,setRating]=useState(5),[comment,setComment]=useState(''),[ve,setVe]=useState('');
+ function add(ev:any){ev.preventDefault();
+  if(!author.trim())return setVe('Reviewer name is required.');if(author.length>60||comment.length>500)return setVe('Name max 60, comment max 500 characters.');
+  setVe('');run(async()=>{await api('/rest/v1/reviews',{method:'POST',token,prefer:'return=minimal',body:{author:author.trim(),rating,comment:comment.trim()}});setAuthor('');setComment('');setRating(5)},'Review added.')}
+ return <div>
+  <form className="card" onSubmit={add} noValidate><h3>Add review</h3>
+   <div className="row"><input className="f" style={{flex:1,minWidth:160}} placeholder="Reviewer name" maxLength={60} value={author} onChange={e=>setAuthor(e.target.value)}/>
+   <select className="f" style={{width:110}} value={rating} onChange={e=>setRating(+e.target.value)} aria-label="Rating">{[5,4,3,2,1].map(n=><option key={n} value={n}>{n} ★</option>)}</select></div>
+   <textarea className="f" style={{marginTop:8}} rows={3} placeholder="Review text" maxLength={500} value={comment} onChange={e=>setComment(e.target.value)}/>
+   <div className="mut" style={{fontSize:13,marginTop:6}}>Only add genuine reviews from real users.</div>
+   {ve&&<div className="fe" role="alert">⚠ {ve}</div>}<button className="btn" style={{marginTop:10}} disabled={busy}>{busy?'Saving…':'Add review'}</button></form>
+  <Msg m={m}/>{err&&<Note k="err">{err}</Note>}
+  {rows===null&&!err?<p className="mut" role="status"><span className="spin"/>Loading…</p>:rows&&rows.length===0?<Note>No reviews yet.</Note>:
+  <div className="card" style={{marginTop:14}}>{rows?.map((r:Review)=><div className="li" key={r.id}><div style={{minWidth:0}}><Stars n={r.rating}/> <b>{r.author}</b> {!r.published&&<span className="tag r">HIDDEN</span>}<div className="mut" style={{fontSize:13}}>{r.comment}</div></div>
+   <div className="row" style={{flexShrink:0}}><button className="btn s" disabled={busy} style={{padding:'6px 10px',fontSize:13}} onClick={()=>run(()=>api('/rest/v1/reviews?id=eq.'+r.id,{method:'PATCH',token,body:{published:!r.published},prefer:'return=minimal'}),r.published?'Review hidden.':'Review published.')}>{r.published?'Hide':'Publish'}</button>
+   <button className="btn d" disabled={busy} style={{padding:'6px 10px',fontSize:13}} onClick={()=>{if(confirm('Delete this review? This can’t be undone.'))run(()=>api('/rest/v1/reviews?id=eq.'+r.id,{method:'DELETE',token}),'Review deleted.')}}>Delete</button></div></div>)}</div>}
+ </div>;
+}
+
+function SettingsTab({token,out,onChange}:TabP){
+ const {rows,err,load}=useRows('/rest/v1/site_settings?select=*&key=eq.announcement',token,out);
+ const {busy,m,run}=useAct(out,()=>{load();onChange()});
+ const [v,setV]=useState('');useEffect(()=>{if(rows)setV(rows[0]?.value||'')},[rows]);
+ return <div className="card"><h3>Site announcement</h3><p className="mut" style={{fontSize:14}}>Shown as a banner on every page. Leave empty to hide it.</p>
+  {err&&<Note k="err">{err}</Note>}
+  <input className="f" maxLength={300} value={v} placeholder="e.g. New drills coming next week!" onChange={e=>setV(e.target.value)}/>
+  <button className="btn" style={{marginTop:10}} disabled={busy||rows===null} onClick={()=>run(()=>v.trim()?api('/rest/v1/site_settings',{method:'POST',token,prefer:'resolution=merge-duplicates,return=minimal',body:{key:'announcement',value:v.trim()}}):api('/rest/v1/site_settings?key=eq.announcement',{method:'DELETE',token}),v.trim()?'Announcement saved.':'Announcement removed.')}>{busy?'Saving…':'Save'}</button><Msg m={m}/></div>;
+}
+
+function VisitsTab({token,out}:{token:string;out:(m:string)=>void}){
+ const [d,setD]=useState<{total:string;pages:[string,number][];week:number}|null>(null),[err,setErr]=useState('');
+ useEffect(()=>{api('/rest/v1/visits?select=page,created_at&order=created_at.desc&limit=1000',{token,prefer:'count=exact'}).then(r=>{
+  const rows:{page:string;created_at:string}[]=r.data,c:Record<string,number>={},wk=Date.now()-7*864e5;
+  rows.forEach(x=>c[x.page]=(c[x.page]||0)+1);
+  setD({total:(r.range||'').split('/')[1]||String(rows.length),pages:Object.entries(c).sort((a,b)=>b[1]-a[1]),week:rows.filter(x=>+new Date(x.created_at)>wk).length})
+ }).catch(e=>{if(e.status===401)out('Session expired. Please log in again.');setErr(e.message)})},[]);
+ if(err)return <Note k="err">{err}</Note>;
+ if(!d)return <p className="mut" role="status"><span className="spin"/>Loading…</p>;
+ return <div className="card"><h3>Visits (consenting visitors only)</h3><p><b style={{fontSize:28}}>{d.total}</b> total · {d.week} in the last 7 days <span className="mut" style={{fontSize:13}}>(based on latest 1000)</span></p>
+  {d.pages.length===0?<Note>No visits recorded yet.</Note>:d.pages.map(([p,n])=><div className="li" key={p}><span>{p}</span><b>{n}</b></div>)}</div>;
+}
+
+function DataTable({rows}:{rows:any[]}){
+ if(rows.length===0)return <Note>This table has no rows yet.</Note>;
+ const cols=Object.keys(rows[0]);
+ const fmt=(v:any)=>v===null||v===undefined?'—':typeof v==='object'?JSON.stringify(v):String(v);
+ return <div style={{overflowX:'auto'}}><table className="dt"><thead><tr>{cols.map(c=><th key={c}>{c}</th>)}</tr></thead>
+  <tbody>{rows.map((r,i)=><tr key={i}>{cols.map(c=><td key={c}>{fmt(r[c]).slice(0,120)}</td>)}</tr>)}</tbody></table></div>;
+}
+
+function UsersTab({token,out}:{token:string;out:(m:string)=>void}){
+ const [rows,setRows]=useState<any[]|null>(null),[err,setErr]=useState('');
+ const load=()=>{setRows(null);setErr('');api('/rest/v1/rpc/admin_list_users',{method:'POST',token,body:{}}).then(r=>setRows(r.data)).catch(e=>{if(e.status===401)out('Session expired. Please log in again.');setErr(e.message)})};
+ useEffect(()=>{load()},[]);
+ return <div className="card"><div className="row" style={{justifyContent:'space-between',alignItems:'center'}}><h3 style={{margin:0}}>Registered users{rows?` (${rows.length})`:''}</h3><button className="btn s" style={{padding:'6px 12px',fontSize:13}} onClick={load}>Refresh</button></div>
+  <p className="mut" style={{fontSize:13}}>Read-only. Passwords are never shown. Manage accounts in Supabase → Authentication.</p>
+  {err&&<Note k="err">{err}</Note>}
+  {rows===null&&!err?<p className="mut" role="status"><span className="spin"/>Loading…</p>:rows&&<DataTable rows={rows}/>}</div>;
+}
+
+function DbTab({token,out}:{token:string;out:(m:string)=>void}){
+ const T=['features','reviews','site_settings','visits','admins'];
+ const order:Record<string,string>={visits:'&order=created_at.desc',reviews:'&order=created_at.desc',features:'&order=sort.asc'};
+ const [t,setT]=useState('features'),[custom,setCustom]=useState(''),[cerr,setCerr]=useState('');
+ const [rows,setRows]=useState<any[]|null>(null),[total,setTotal]=useState(''),[err,setErr]=useState('');
+ const load=()=>{setRows(null);setErr('');
+  api(`/rest/v1/${t}?select=*${order[t]||''}&limit=200`,{token,prefer:'count=exact'}).then(r=>{setRows(r.data);setTotal((r.range||'').split('/')[1]||'')})
+   .catch(e=>{if(e.status===401)out('Session expired. Please log in again.');setErr(e.status===404?`Table “${t}” was not found, or isn’t exposed to the API.`:e.message)})};
+ useEffect(()=>{load()},[t]);
+ function openCustom(ev:any){ev.preventDefault();const n=custom.trim();
+  if(!/^[a-z_][a-z0-9_]{0,62}$/.test(n))return setCerr('Use a table name with lowercase letters, numbers and underscores only.');
+  setCerr('');setT(n)}
+ return <div className="card"><h3 style={{marginTop:0}}>Database viewer</h3>
+  <p className="mut" style={{fontSize:13}}>Read-only view of your tables (latest 200 rows). A new table appears here only after you add an admin read policy for it.</p>
+  <div className="seg" style={{marginBottom:10}}>{T.map(n=><button key={n} className={t===n?'on':''} onClick={()=>setT(n)}>{n}</button>)}</div>
+  <form className="row" onSubmit={openCustom} noValidate><input className="f" style={{flex:1,minWidth:140}} placeholder="Other table name" value={custom} onChange={e=>setCustom(e.target.value)} aria-label="Other table name"/><button className="btn s" style={{padding:'8px 14px',fontSize:14}}>Open</button></form>
+  {cerr&&<div className="fe" role="alert">⚠ {cerr}</div>}
+  <div className="row" style={{justifyContent:'space-between',alignItems:'center',margin:'12px 0 8px'}}><b>{t}{total&&rows?` · ${total} row${total==='1'?'':'s'}`:''}</b><button className="btn s" style={{padding:'6px 12px',fontSize:13}} onClick={load}>Refresh</button></div>
+  {err&&<Note k="err">{err}</Note>}
+  {rows===null&&!err?<p className="mut" role="status"><span className="spin"/>Loading…</p>:rows&&<DataTable rows={rows}/>}</div>;
+}
+
+function Panel({s,out,onChange}:{s:Sess;out:(m:string)=>void;onChange:()=>void}){
+ const [tab,setTab]=useState('features'),[admin,setAdmin]=useState<boolean|null>(null),[err,setErr]=useState('');
+ useEffect(()=>{api('/rest/v1/admins?select=user_id',{token:s.token}).then(r=>setAdmin(r.data.length>0)).catch(e=>{if(e.status===401)out('Session expired. Please log in again.');else setErr(e.message)})},[]);
+ const P={token:s.token,out,onChange};
+ return <div className="w"><div className="row" style={{justifyContent:'space-between',alignItems:'center'}}><h2>Admin Panel</h2><button className="btn s" style={{padding:'8px 14px',fontSize:14}} onClick={()=>out('')}>Log out</button></div>
+  <p className="mut" style={{marginTop:-8,fontSize:14}}>Signed in as {s.email}</p>
+  {err&&<Note k="err">{err}</Note>}
+  {admin===null&&!err&&<p className="mut" role="status"><span className="spin"/>Checking permissions…</p>}
+  {admin===false&&<Note k="err"><b>This account is not an admin.</b> In Supabase SQL Editor run:<br/><code style={{wordBreak:'break-all'}}>insert into public.admins(user_id) select id from auth.users where email='{s.email}';</code></Note>}
+  {admin&&<><div className="seg" style={{marginBottom:14}}>{[['features','Features'],['reviews','Reviews'],['settings','Banner'],['visits','Visits'],['users','Users'],['db','Database']].map(([k,l])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}</div>
+   {tab==='features'&&<FeaturesTab {...P}/>}{tab==='reviews'&&<ReviewsTab {...P}/>}{tab==='settings'&&<SettingsTab {...P}/>}{tab==='visits'&&<VisitsTab token={s.token} out={out}/>}{tab==='users'&&<UsersTab token={s.token} out={out}/>}{tab==='db'&&<DbTab token={s.token} out={out}/>}</>}
+ </div>;
+}
+
+function Admin({onChange}:{onChange:()=>void}){
+ const [s,setS]=useState<Sess|null>(()=>{try{return JSON.parse(sessionStorage.getItem(SKEY)||'null')}catch{return null}});
+ const [email,setEmail]=useState(''),[pw,setPw]=useState(''),[err,setErr]=useState(''),[busy,setBusy]=useState(false);
+ const out=(m:string)=>{try{sessionStorage.removeItem(SKEY)}catch{}setS(null);setErr(m)};
+ async function login(ev:any){ev.preventDefault();
+  if(!email.trim()||!pw)return setErr('Enter your email and password.');
+  setBusy(true);setErr('');
+  try{
+   const r=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({email:email.trim(),password:pw})});
+   const j=await r.json();if(!r.ok)throw new Error(j.error_description||j.msg||'Login failed.');
+   const n={token:j.access_token,email:j.user?.email||email.trim()};
+   try{sessionStorage.setItem(SKEY,JSON.stringify(n))}catch{}
+   setS(n);setPw('');
+  }catch(e:any){setErr(e.message||'Could not reach the server.')}finally{setBusy(false)}
+ }
+ if(s)return <Panel s={s} out={out} onChange={onChange}/>;
+ return <div className="w"><h2>Admin Login</h2>
+  <form className="card" style={{maxWidth:420}} onSubmit={login} noValidate>
+   <label style={{marginTop:0}}>Email</label><input className="f" type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)}/>
+   <label>Password</label><input className="f" type="password" autoComplete="current-password" value={pw} onChange={e=>setPw(e.target.value)}/>
+   {err&&<Note k="err">{err}</Note>}
+   <button className="btn" style={{marginTop:14,width:'100%'}} disabled={busy}>{busy?'Signing in…':'Log in'}</button>
+   <p className="mut" style={{fontSize:13}}>Only accounts listed as admins can make changes. This is enforced by the database, not just this screen.</p></form></div>;
+}
+
+function Upload({onPrepared}:{onPrepared:(v:Vid)=>void}){
+ const [kind,setKind]=useState<Kind|null>(null),[angle,setAngle]=useState<string|null>(null);
+ const [file,setFile]=useState<File|null>(null),[url,setUrl]=useState('');
+ const [fileErr,setFileErr]=useState(''),[info,setInfo]=useState('');
+ const [meta,setMeta]=useState<{d:number;w:number;h:number}|null>(null);
+ const [loading,setLoading]=useState(false),[noPreview,setNoPreview]=useState(false);
+ const [consent,setConsent]=useState(false),[over,setOver]=useState(false),[tried,setTried]=useState(false);
+ const [done,setDone]=useState<{name:string;kind:Kind;angle:string}|null>(null);
+ const ref=useRef<HTMLInputElement>(null),urlRef=useRef('');
+ useEffect(()=>()=>{if(urlRef.current)URL.revokeObjectURL(urlRef.current)},[]);
+ // If the browser never reports metadata (some mobile browsers defer it), stop the spinner without inventing a result.
+ useEffect(()=>{if(!loading)return;const t=setTimeout(()=>setLoading(false),8000);return()=>clearTimeout(t)},[loading]);
+ function clear(){
+  if(urlRef.current)URL.revokeObjectURL(urlRef.current);
+  urlRef.current='';setUrl('');setFile(null);setMeta(null);setNoPreview(false);setLoading(false);
+  if(ref.current)ref.current.value='';
+ }
+ function pick(files?:FileList|null){
+  setFileErr('');setInfo('');setDone(null);
+  if(!files||files.length===0)return setFileErr('No file was received. Please try choosing the video again.');
+  const f=files[0];
+  const extOk=/\.(mp4|mov|webm)$/i.test(f.name);
+  const typeOk=f.type===''||OK_TYPES.includes(f.type);
+  const reject=(m:string)=>{if(ref.current)ref.current.value='';setFileErr(m)};
+  if(!extOk||!typeOk)return reject(`“${f.name}” isn’t supported. Please choose an MP4, MOV or WebM video.`);
+  if(f.size===0)return reject(`“${f.name}” is empty (0 MB). Please choose a different video.`);
+  if(f.size>MAX_MB*1048576)return reject(`“${f.name}” is ${mb(f.size)}. The maximum is ${MAX_MB} MB, so please trim or compress the video.`);
+  clear();
+  if(files.length>1)setInfo('Only one video can be used at a time. Using the first one you selected.');
+  setFile(f);
+  try{const u=URL.createObjectURL(f);urlRef.current=u;setUrl(u);setLoading(true)}
+  catch{setNoPreview(true)}
+ }
+ const e={
+  kind:tried&&!kind?'Choose Batting Analysis or Bowling Analysis.':'',
+  angle:tried&&!angle?'Choose a camera angle: Side, Front or Rear View.':'',
+  file:tried&&!file?'Select a video file to continue.':'',
+  consent:tried&&!consent?'Please confirm consent to continue.':''};
+ function submit(ev:any){
+  ev.preventDefault();setTried(true);
+  if(!kind||!angle||!file||!consent)return;
+  onPrepared({id:'u'+Date.now(),name:file.name,kind,angle,size:file.size,date:new Date().toLocaleDateString(),status:'Ready for Upload',url:urlRef.current||undefined});
+  setDone({name:file.name,kind,angle});
+  // Hand the preview URL to the app (for report playback); don’t revoke it here.
+  urlRef.current='';setUrl('');setFile(null);setMeta(null);setNoPreview(false);setLoading(false);
+  setKind(null);setAngle(null);setConsent(false);setTried(false);if(ref.current)ref.current.value='';
+  window.scrollTo({top:0,behavior:'smooth'});
+ }
+ const dur=(d:number)=>Math.floor(d/60)+':'+String(Math.floor(d%60)).padStart(2,'0');
+ const FE=({m}:{m:string})=>m?<div className="fe" role="alert">⚠ {m}</div>:null;
+ return <div className="w"><h2>Upload Video</h2>
+ <Note>🔒 <b>Local selection only.</b> Choosing a video here only loads it in your browser for preview. Nothing is uploaded, saved or analyzed in this version.</Note>
+ {done&&<Note k="ok">✅ <b>Video selected on this device only.</b> “{done.name}” ({done.kind}, {done.angle}) has <b>not</b> been uploaded to a server and no analysis has been run. It is held in this browser tab’s memory for now and will be gone if you refresh or close the page. Uploading and analysis need a backend that isn’t connected yet.
+  <div className="row" style={{marginTop:10}}><a className="btn s" style={{padding:'8px 14px',fontSize:14}} href="#dashboard">View in dashboard</a><a className="btn s" style={{padding:'8px 14px',fontSize:14}} href="#report">See demo report</a></div></Note>}
+ <form onSubmit={submit} className="card" noValidate>
+  <label>1. Analysis type</label>
+  <div className="seg">{(['batting','bowling'] as Kind[]).map(k=><button type="button" aria-pressed={kind===k} key={k} className={kind===k?'on':''} onClick={()=>setKind(k)}>{k==='batting'?'🏏 Batting Analysis':'🎯 Bowling Analysis'}</button>)}</div>
+  <FE m={e.kind}/>
+  <label>2. Camera angle</label>
+  <div className="seg">{['Side View','Front View','Rear View'].map(a=><button type="button" aria-pressed={angle===a} key={a} className={angle===a?'on':''} onClick={()=>setAngle(a)}>{a}</button>)}</div>
+  <FE m={e.angle}/>
+  <label>3. Video file</label>
+  {!file&&<div className={'drop'+(over?' over':'')} role="button" tabIndex={0} aria-label="Choose a video file" onClick={()=>ref.current?.click()} onKeyDown={ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();ref.current?.click()}}} onDragOver={ev=>{ev.preventDefault();setOver(true)}} onDragLeave={()=>setOver(false)} onDrop={ev=>{ev.preventDefault();setOver(false);pick(ev.dataTransfer.files)}}>
+   <div className="ico">📹</div><b>Drag &amp; drop a video, or tap to browse</b><div className="mut" style={{fontSize:14}}>MP4, MOV or WebM · up to {MAX_MB} MB</div></div>}
+  <input ref={ref} type="file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm" hidden onChange={ev=>pick(ev.target.files)}/>
+  {fileErr&&<Note k="err">{fileErr}</Note>}
+  {info&&<Note>{info}</Note>}
+  <FE m={e.file}/>
+  {file&&<div style={{marginTop:6}}>
+   {url&&!noPreview&&<video src={url} controls playsInline preload="metadata" onLoadedMetadata={ev=>{const v=ev.currentTarget;setMeta({d:v.duration,w:v.videoWidth,h:v.videoHeight});setLoading(false)}} onError={()=>{setNoPreview(true);setLoading(false)}}/>}
+   {loading&&<div className="mut" style={{fontSize:14,marginTop:8}} role="status"><span className="spin"/>Loading preview…</div>}
+   {noPreview&&<Note>This browser can’t preview this video (some MOV/HEVC files only play on Apple devices). The file is still selected and valid, so you can continue.</Note>}
+   <p style={{margin:'10px 0 2px',wordBreak:'break-all'}}><b>{file.name}</b></p>
+   <div className="mut" style={{fontSize:14}}>{mb(file.size)}{meta&&isFinite(meta.d)?` · ${dur(meta.d)}`:''}{meta&&meta.w?` · ${meta.w}×${meta.h}`:''}</div>
+   <button type="button" className="btn s" style={{marginTop:10,padding:'8px 14px',fontSize:14}} onClick={clear}>✕ Remove video</button></div>}
+  <label style={{display:'flex',gap:10,alignItems:'flex-start',fontWeight:400}}><input type="checkbox" checked={consent} onChange={ev=>setConsent(ev.target.checked)} style={{marginTop:5,width:20,height:20}}/>
+   <span>4. I consent to this video being processed for technique analysis once that feature is available. I understand nothing is uploaded or processed today.</span></label>
+  <FE m={e.consent}/>
+  <button className="btn" style={{marginTop:16,width:'100%'}} type="submit">Prepare Analysis</button>
+ </form></div>;
+}
+
+function Dashboard({vids}:{vids:Vid[]}){
+ const [tab,setTab]=useState<'all'|Kind|'progress'>('all');
+ const mine=vids.filter(v=>!v.sample);
+ const list=vids.filter(v=>tab==='all'||v.kind===tab);
+ return <div className="w"><h2>Player Dashboard</h2>
+ <Note>Sample videos below are marked <b>SAMPLE</b>. Statuses are placeholders; no real processing happens. Sign-in will be added with Supabase Auth. Videos you select are held in this tab’s memory only and disappear on refresh.</Note>
+ <div className="seg" style={{marginBottom:14}}>{([['all','All'],['batting','Batting'],['bowling','Bowling'],['progress','Progress']] as [any,string][]).map(([k,l])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}</div>
+ {tab==='progress'?<div className="card"><h3>Progress history <Demo/></h3><div className="hist">{[40,48,45,60,66,72].map((h,i)=><div key={i} style={{height:h+'%'}}/>)}</div>
+  <p className="mut">Illustrative chart with made-up values. Real progress tracking needs saved analyses.</p></div>
+ :<>{mine.length===0&&tab==='all'&&<Note>📭 No videos of your own yet. <a href="#upload" style={{color:'var(--g)'}}>Prepare your first video</a>.</Note>}
+ {list.length===0?<Note>No videos in this category.</Note>:
+ <div className="grid">{list.map(v=><div className="card" key={v.id}>
+  <div className="ico">{v.kind==='batting'?'🏏':'🎯'}</div><b style={{wordBreak:'break-all'}}>{v.name}</b>
+  <div className="mut" style={{fontSize:14}}>{v.kind} · {v.angle} · {mb(v.size)} · {v.date}</div>
+  <div className="row" style={{margin:'8px 0'}}>{v.sample&&<Demo t="SAMPLE"/>}<Status s={v.status}/></div>
+  <a className="btn s" href="#report" style={{fontSize:14,padding:'8px 14px'}}>View demo report</a></div>)}</div>}</>}
+ </div>;
+}
+
+function Report({latest,}:{latest?:Vid}){
+ const B:[string,number,string][]=[['Head position over front knee',78,'Stable'],['Front shoulder alignment',64,'Needs work'],['Weight transfer',71,'Good'],['Backlift height',58,'Needs work']];
+ return <div className="w"><h2>Analysis Report <Demo/></h2>
+ <Note>⚠️ <b>DEMO DATA.</b> Every score and finding below is a made-up example. None are measurements of your video.</Note>
+ <div className="cols">
+  <div className="card"><h3>Video playback</h3>{latest?.url?<><video src={latest.url} controls playsInline/><p className="mut">{latest.name}</p></>:<div className="drop" style={{cursor:'default'}}><div className="ico">🎞️</div><p className="mut">No video prepared yet in this session.</p></div>}</div>
+  <div className="card"><h3>Body-position indicators <Demo/></h3>{B.map(([l,v,s])=><div key={l} style={{marginBottom:10}}><div className="row" style={{justifyContent:'space-between',fontSize:14}}><span>{l}</span><span className="mut">{v}/100 · {s}</span></div><div className="bar"><i style={{width:v+'%'}}/></div></div>)}</div>
+  <div className="card"><h3>Technique observations <Demo/></h3><ul><li>Balanced stance at the crease.</li><li>Head stays still through contact.</li><li>Follow-through finishes high and open.</li></ul></div>
+  <div className="card"><h3>Improvement areas <Demo/></h3><ul><li>Front shoulder tends to open early.</li><li>Backlift could be more consistent.</li></ul></div>
+  <div className="card"><h3>Recommended drills <Demo/></h3><ul><li>Shadow batting with a mirror, 3 × 10</li><li>Tee drives focusing on front-foot alignment</li><li>One-leg balance holds, 3 × 30 s</li></ul></div></div>
+ <p><a className="btn" href="#upload">Analyze another video</a></p></div>;
+}
+
+function Coach(){
+ const [msgs,setMsgs]=useState<{me:boolean;t:string}[]>([{me:false,t:'👋 Demo mode: no AI is connected yet. Replies here are fixed placeholders, not real coaching.'}]);
+ const [q,setQ]=useState(''),[err,setErr]=useState('');const end=useRef<HTMLDivElement>(null);
+ useEffect(()=>{end.current?.scrollIntoView({block:'nearest'})},[msgs]);
+ function send(text:string){
+  const t=text.trim();if(!t)return setErr('Please type a question.');if(t.length>300)return setErr('Keep questions under 300 characters.');
+  setErr('');setQ('');setMsgs(m=>[...m,{me:true,t},{me:false,t:'[DEMO] AI coaching isn’t connected yet, so I can’t answer this. Once a secure backend is added, real technique guidance will appear here.'}]);
+ }
+ return <div className="w"><h2>AI Coach <Demo t="DEMO INTERFACE"/></h2>
+ <Note>This chat is a UI preview. No questions are sent anywhere.</Note>
+ <div className="card"><div className="chat" aria-live="polite">{msgs.map((m,i)=><div key={i} className={'msg'+(m.me?' me':'')}>{m.t}</div>)}<div ref={end}/></div>
+  <div className="row" style={{margin:'10px 0'}}>{['How do I fix my head position?','Best drill for a straighter drive?'].map(s=><button key={s} className="btn s" style={{fontSize:13,padding:'6px 10px'}} onClick={()=>send(s)}>{s}</button>)}</div>
+  {err&&<Note k="err">{err}</Note>}
+  <form className="row" onSubmit={e=>{e.preventDefault();send(q)}}><input type="text" value={q} onChange={e=>setQ(e.target.value)} placeholder="Ask a technique question…" aria-label="Question"/><button className="btn" type="submit">Send</button></form></div></div>;
+}
+
+function About(){
+ return <div className="w"><h2>About AI Cricket Guru</h2>
+ <div className="card"><p>Our mission is to help aspiring cricketers improve through technology. Great coaching shouldn’t depend on where you live or what you can afford.</p>
+ <p>We’re building for players across India, from city academies to small-town grounds, with a phone-friendly experience designed for modest connections.</p>
+ <p className="mut">Status: early preview. The interface is ready; video storage, accounts and AI analysis are planned and not yet live.</p></div></div>;
+}
+
+/* ---- Supabase visit logging (visit only) ----
+   Publishable key is designed to be public. NEVER put a service_role/secret key here. */
+const SUPABASE_URL='https://aiezvuftplbjosvlgcwu.supabase.co';
+const SUPABASE_KEY='sb_publishable_ljVOr9vPT25b-_SUuwxSog_wRLQQLJO';
+function visitorId():string|null{try{let v=localStorage.getItem('cg_vid');if(!v){v=crypto.randomUUID();localStorage.setItem('cg_vid',v)}return v}catch{return null}}
+async function logVisit(page:string){
+ try{await fetch(SUPABASE_URL+'/rest/v1/visits',{method:'POST',
+  headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+  body:JSON.stringify({page:page.slice(0,50),referrer:(document.referrer||'').slice(0,300)||null,language:(navigator.language||'').slice(0,20)||null,screen_width:window.innerWidth,visitor_id:visitorId()})});
+ }catch{/* analytics must never break the app */}
+}
+const getConsent=():string|null=>{try{return localStorage.getItem('cg_consent')}catch{return null}};
+function Consent({value,onChoose}:{value:string|null;onChoose:(v:string)=>void}){
+ if(value)return null;
+ return <div className="consent" role="dialog" aria-label="Privacy notice"><div className="w" style={{padding:'12px 16px'}}>
+  <p style={{margin:'0 0 10px',fontSize:14}}>📊 <b>Privacy:</b> With your OK, we count anonymous visits: page name, referrer, language and screen width. We store no name, IP address or video data in our visit log. Your choice is remembered in this browser.</p>
+  <div className="row"><button className="btn" style={{padding:'8px 16px',fontSize:14}} onClick={()=>onChoose('yes')}>Accept</button><button className="btn s" style={{padding:'8px 16px',fontSize:14}} onClick={()=>onChoose('no')}>No thanks</button></div></div></div>;
+}
+
+function App(){
+ const get=():Route=>{const h=location.hash.slice(1) as Route;return ['home','upload','dashboard','report','coach','about','admin'].includes(h)?h:'home'};
+ const [route,setRoute]=useState<Route>(get()),[vids,setVids]=useState<Vid[]>(SAMPLE);
+ useEffect(()=>{const f=()=>{if(location.hash==='#features'){document.getElementById('features')?.scrollIntoView({behavior:'smooth'});setRoute('home');return}setRoute(get());window.scrollTo(0,0)};addEventListener('hashchange',f);return()=>removeEventListener('hashchange',f)},[]);
+ const latest=vids.find(v=>!v.sample);
+ const [site,setSite]=useState<Site>({status:'loading',features:[],reviews:[],announcement:''});
+ const reload=()=>{loadSite().then(setSite)};
+ useEffect(()=>{reload()},[]);
+ const [consent,setConsent]=useState<string|null>(getConsent());
+ const choose=(v:string)=>{try{localStorage.setItem('cg_consent',v)}catch{}setConsent(v)};
+ useEffect(()=>{if(consent==='yes'&&route!=='admin')logVisit(route)},[route,consent]);
+ return <><Nav route={route}/>{site.announcement&&<div className="ann" role="status">📢 {site.announcement}</div>}
+  {route==='home'&&<Home site={site}/>}{route==='upload'&&<Upload onPrepared={v=>setVids(a=>[v,...a])}/>}
+  {route==='dashboard'&&<Dashboard vids={vids}/>}{route==='report'&&<Report latest={latest}/>}
+  {route==='coach'&&<Coach/>}{route==='admin'&&<Admin onChange={reload}/>}{route==='about'&&<About/>}
+  <footer>© AI Cricket Guru · Preview build · AI analysis is under development · <a href="#admin" style={{color:'inherit'}}>Admin</a></footer><Consent value={consent} onChoose={choose}/></>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+<script>
+try{
+ var out=Babel.transform(document.getElementById('src').textContent,{filename:'app.tsx',presets:[['typescript',{isTSX:true,allExtensions:true}],'react']}).code;
+ var s=document.createElement('script');s.textContent=out;document.body.appendChild(s);
+}catch(e){document.getElementById('root').innerHTML='<p style="padding:20px">Failed to start: '+e.message+'</p>'}
+</script>
+</body></html>
