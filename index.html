@@ -47,6 +47,7 @@ input[type=text]{flex:1;min-width:0;background:var(--bg);color:var(--tx);border:
 .li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)}.li:first-child{border-top:0}
 .star{color:#fbbf24;letter-spacing:2px}.btn.d{background:#ef4444;color:#fff}code{background:var(--bg);padding:2px 6px;border-radius:6px;font-size:12px}
 .dt{border-collapse:collapse;font-size:13px;width:100%}.dt th,.dt td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}.dt th{color:var(--g);position:sticky;top:0;background:var(--card)}
+.tag.n{background:#9fb0d033;color:var(--mut)}
 footer{text-align:center;color:var(--mut);font-size:13px;padding:30px 16px}
 ul{padding-left:18px;margin:6px 0}li{margin:4px 0}
 </style></head>
@@ -58,27 +59,18 @@ ul{padding-left:18px;margin:6px 0}li{margin:4px 0}
 const {useState,useEffect,useRef}=React;
 type Route='home'|'upload'|'dashboard'|'report'|'coach'|'about'|'admin';
 type Kind='batting'|'bowling';
-type Status='Ready for Upload'|'Processing Demo'|'Analysis Unavailable';
-interface Vid{id:string;name:string;kind:Kind;angle:string;size:number;date:string;status:Status;url?:string;sample?:boolean}
+type Status='Analyzed'|'Analysis failed';
+interface Ai{visibility:'good'|'limited'|'poor';summary:string;observations:{title:string;detail:string}[];body_position:{area:string;status:string;note:string}[];improvements:string[];drills:{name:string;how:string}[];limitations:string}
+interface Vid{id:string;name:string;kind:Kind;angle:string;size:number;date:string;status:Status;url?:string;result?:Ai;frames?:number}
 
-/* ---- Integration seams (nothing is connected yet) ----
-   Later: implement with Supabase Auth, Storage (private bucket + signed URLs),
-   and a Postgres table for videos/reports. Keys live server-side only. */
+/* ---- Integration seam ----
+   Not built yet: saving videos/reports per player (Supabase Auth + private Storage + a reports table). */
 interface VideoStorage{upload(f:File,userId:string):Promise<{path:string}>}
-interface AnalysisService{request(path:string):Promise<{reportId:string}>}
-const notConnected=()=>Promise.reject(new Error('Backend not connected yet'));
-const services={storage:{upload:notConnected} as VideoStorage,analysis:{request:notConnected} as AnalysisService};
 
 const MAX_MB=200, OK_TYPES=['video/mp4','video/quicktime','video/webm'];
 const mb=(n:number)=>(n/1048576).toFixed(1)+' MB';
-const SAMPLE:Vid[]=[
- {id:'s1',name:'cover-drive-nets.mp4',kind:'batting',angle:'Side View',size:48e6,date:'Sample',status:'Processing Demo',sample:true},
- {id:'s2',name:'fast-bowling-run-up.mov',kind:'bowling',angle:'Rear View',size:92e6,date:'Sample',status:'Analysis Unavailable',sample:true},
- {id:'s3',name:'pull-shot-practice.webm',kind:'batting',angle:'Front View',size:31e6,date:'Sample',status:'Ready for Upload',sample:true}];
-
-const Demo=({t='DEMO DATA'}:{t?:string})=><span className="tag">{t}</span>;
 const Note=({k='',children}:{k?:string;children:any})=><div className={'note '+k} role={k==='err'?'alert':'status'}>{children}</div>;
-const Status=({s}:{s:Status})=><span className={'tag '+(s==='Analysis Unavailable'?'r':s==='Ready for Upload'?'g':'')}>{s.toUpperCase()}</span>;
+const Status=({s}:{s:Status})=><span className={'tag '+(s==='Analyzed'?'g':'r')}>{s.toUpperCase()}</span>;
 
 function Nav({route}:{route:Route}){
  const L:[Route,string][]=[['home','Home'],['upload','Upload'],['dashboard','Dashboard'],['report','Report'],['coach','AI Coach'],['about','About']];
@@ -99,7 +91,7 @@ async function api(path:string,o:{method?:string;body?:any;token?:string;prefer?
 interface Feature{id:string;icon:string;title:string;description:string;badge:string;sort:number;active:boolean}
 interface Review{id:string;author:string;rating:number;comment:string;published:boolean;created_at:string}
 interface Site{status:'loading'|'ok'|'error';features:Feature[];reviews:Review[];announcement:string}
-const DEFAULTS:Feature[]=[['🏏','Batting Analysis','Stance, backlift, head position and shot balance.'],['🎯','Bowling Analysis','Run-up, load-up, release and follow-through.'],['🤖','AI Coaching','Ask technique questions and get drills.'],['📈','Progress Tracking','Compare sessions and spot trends.']].map(([icon,title,description],i)=>({id:'d'+i,icon,title,description,badge:'COMING SOON',sort:i,active:true}));
+const DEFAULTS:Feature[]=[['🏏','Batting Analysis','Stance, backlift, head position and shot balance.'],['🎯','Bowling Analysis','Run-up, load-up, release and follow-through.'],['🤖','AI Coaching','Ask technique questions and get drills.'],['📈','Progress Tracking','Compare sessions and spot trends.']].map(([icon,title,description],i)=>({id:'d'+i,icon,title,description,badge:i<3?'AI BETA':'COMING SOON',sort:i,active:true}));
 async function loadSite():Promise<Site>{
  try{
   const [f,r,s]=await Promise.all([api('/rest/v1/features?select=*&active=eq.true&order=sort.asc,created_at.asc'),api('/rest/v1/reviews?select=*&published=eq.true&order=created_at.desc&limit=50'),api('/rest/v1/site_settings?select=*&key=eq.announcement')]);
@@ -116,7 +108,7 @@ function Home({site}:{site:Site}){
   <h1>Improve Your Cricket. <span style={{color:'var(--g)'}}>One Video at a Time.</span></h1>
   <p className="mut" style={{maxWidth:560}}>Upload your batting or bowling video and start your journey toward better technique.</p>
   <div className="row"><a className="btn" href="#upload">Analyze My Video</a><a className="btn s" href="#features">Explore Features</a></div></div>
-  <Note>🚧 <b>AI analysis is under development.</b> You can prepare videos and explore the interface today, but no real technique analysis is performed yet. All scores and reports shown are demo data.</Note>
+  <Note>🤖 <b>AI analysis is in beta.</b> Feedback is generated by AI from a few still frames of your video. It’s helpful guidance, not exact measurement, and doesn’t replace a coach.</Note>
   {site.status==='error'&&<Note>Live content couldn’t be loaded, so default content is shown.</Note>}
   <h2 id="features">Features</h2>
   {site.status==='ok'&&F.length===0?<Note>No features to show yet.</Note>:
@@ -291,29 +283,56 @@ function Admin({onChange}:{onChange:()=>void}){
    <p className="mut" style={{fontSize:13}}>Only accounts listed as admins can make changes. This is enforced by the database, not just this screen.</p></form></div>;
 }
 
-function Upload({onPrepared}:{onPrepared:(v:Vid)=>void}){
+/* ---- AI service (Supabase Edge Function; the AI key lives only on the server) ---- */
+async function callAI(body:any):Promise<any>{
+ let r:Response;
+ try{r=await fetch(SUPABASE_URL+'/functions/v1/analyze-video',{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY},body:JSON.stringify(body)})}
+ catch{throw new Error('Could not reach the AI service. Check your internet connection and try again.')}
+ let j:any=null;try{j=await r.json()}catch{}
+ if(!r.ok)throw new Error(r.status===404?'The AI service isn’t deployed yet.':j?.message||`AI service error (${r.status}).`);
+ return j;
+}
+
+// Samples evenly spaced still frames from the local video (nothing is uploaded here).
+async function extractFrames(url:string,n:number,onFrame:(i:number)=>void){
+ const v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.src=url;
+ await new Promise<void>((res,rej)=>{const t=setTimeout(()=>rej(new Error('timeout')),15000);v.onloadedmetadata=()=>{clearTimeout(t);res()};v.onerror=()=>{clearTimeout(t);rej(new Error('decode'))}});
+ const d=v.duration;if(!isFinite(d)||d<1)throw new Error('short');
+ if(!v.videoWidth||!v.videoHeight)throw new Error('decode');
+ const sc=640/Math.max(v.videoWidth,v.videoHeight),W=Math.round(v.videoWidth*sc),H=Math.round(v.videoHeight*sc);
+ const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');if(!x)throw new Error('decode');
+ const frames:string[]=[],times:number[]=[];
+ for(let i=0;i<n;i++){
+  const t=d*(0.05+0.9*i/(n-1));
+  await new Promise<void>((res,rej)=>{const to=setTimeout(()=>rej(new Error('seek')),10000);v.onseeked=()=>{clearTimeout(to);res()};v.onerror=()=>{clearTimeout(to);rej(new Error('decode'))};v.currentTime=t});
+  x.drawImage(v,0,0,W,H);frames.push(c.toDataURL('image/jpeg',0.72).split(',')[1]);times.push(t);onFrame(i+1);
+ }
+ v.removeAttribute('src');v.load();
+ return {frames,times};
+}
+
+function Upload({onAnalyzed}:{onAnalyzed:(v:Vid)=>void}){
  const [kind,setKind]=useState<Kind|null>(null),[angle,setAngle]=useState<string|null>(null);
  const [file,setFile]=useState<File|null>(null),[url,setUrl]=useState('');
  const [fileErr,setFileErr]=useState(''),[info,setInfo]=useState('');
  const [meta,setMeta]=useState<{d:number;w:number;h:number}|null>(null);
  const [loading,setLoading]=useState(false),[noPreview,setNoPreview]=useState(false);
  const [consent,setConsent]=useState(false),[over,setOver]=useState(false),[tried,setTried]=useState(false);
- const [done,setDone]=useState<{name:string;kind:Kind;angle:string}|null>(null);
- const ref=useRef<HTMLInputElement>(null),urlRef=useRef('');
- useEffect(()=>()=>{if(urlRef.current)URL.revokeObjectURL(urlRef.current)},[]);
- // If the browser never reports metadata (some mobile browsers defer it), stop the spinner without inventing a result.
+ const [phase,setPhase]=useState<'idle'|'extracting'|'analyzing'>('idle'),[prog,setProg]=useState(0),[aiErr,setAiErr]=useState('');
+ const ref=useRef<HTMLInputElement>(null),urlRef=useRef(''),alive=useRef(true);
+ const busy=phase!=='idle',N=8;
+ useEffect(()=>{alive.current=true;return()=>{alive.current=false;if(urlRef.current)URL.revokeObjectURL(urlRef.current)}},[]);
  useEffect(()=>{if(!loading)return;const t=setTimeout(()=>setLoading(false),8000);return()=>clearTimeout(t)},[loading]);
  function clear(){
   if(urlRef.current)URL.revokeObjectURL(urlRef.current);
-  urlRef.current='';setUrl('');setFile(null);setMeta(null);setNoPreview(false);setLoading(false);
+  urlRef.current='';setUrl('');setFile(null);setMeta(null);setNoPreview(false);setLoading(false);setAiErr('');
   if(ref.current)ref.current.value='';
  }
  function pick(files?:FileList|null){
-  setFileErr('');setInfo('');setDone(null);
+  setFileErr('');setInfo('');setAiErr('');
   if(!files||files.length===0)return setFileErr('No file was received. Please try choosing the video again.');
   const f=files[0];
-  const extOk=/\.(mp4|mov|webm)$/i.test(f.name);
-  const typeOk=f.type===''||OK_TYPES.includes(f.type);
+  const extOk=/\.(mp4|mov|webm)$/i.test(f.name),typeOk=f.type===''||OK_TYPES.includes(f.type);
   const reject=(m:string)=>{if(ref.current)ref.current.value='';setFileErr(m)};
   if(!extOk||!typeOk)return reject(`“${f.name}” isn’t supported. Please choose an MP4, MOV or WebM video.`);
   if(f.size===0)return reject(`“${f.name}” is empty (0 MB). Please choose a different video.`);
@@ -321,40 +340,47 @@ function Upload({onPrepared}:{onPrepared:(v:Vid)=>void}){
   clear();
   if(files.length>1)setInfo('Only one video can be used at a time. Using the first one you selected.');
   setFile(f);
-  try{const u=URL.createObjectURL(f);urlRef.current=u;setUrl(u);setLoading(true)}
-  catch{setNoPreview(true)}
+  try{const u=URL.createObjectURL(f);urlRef.current=u;setUrl(u);setLoading(true)}catch{setNoPreview(true)}
  }
  const e={
   kind:tried&&!kind?'Choose Batting Analysis or Bowling Analysis.':'',
   angle:tried&&!angle?'Choose a camera angle: Side, Front or Rear View.':'',
   file:tried&&!file?'Select a video file to continue.':'',
   consent:tried&&!consent?'Please confirm consent to continue.':''};
- function submit(ev:any){
-  ev.preventDefault();setTried(true);
-  if(!kind||!angle||!file||!consent)return;
-  onPrepared({id:'u'+Date.now(),name:file.name,kind,angle,size:file.size,date:new Date().toLocaleDateString(),status:'Ready for Upload',url:urlRef.current||undefined});
-  setDone({name:file.name,kind,angle});
-  // Hand the preview URL to the app (for report playback); don’t revoke it here.
-  urlRef.current='';setUrl('');setFile(null);setMeta(null);setNoPreview(false);setLoading(false);
-  setKind(null);setAngle(null);setConsent(false);setTried(false);if(ref.current)ref.current.value='';
-  window.scrollTo({top:0,behavior:'smooth'});
+ async function submit(ev:any){
+  ev.preventDefault();setTried(true);setAiErr('');
+  if(!kind||!angle||!file||!consent||busy)return;
+  if(!urlRef.current)return setAiErr('Your browser couldn’t open this video for analysis. Try another file.');
+  try{
+   setPhase('extracting');setProg(0);
+   const {frames,times}=await extractFrames(urlRef.current,N,setProg);
+   if(!alive.current)return;
+   setPhase('analyzing');
+   const j=await callAI({mode:'video',kind,angle,frames,times});
+   if(!j?.result)throw new Error('The AI returned an unexpected response. Please try again.');
+   if(!alive.current)return;
+   const v:Vid={id:'u'+Date.now(),name:file.name,kind,angle,size:file.size,date:new Date().toLocaleDateString(),status:'Analyzed',url:urlRef.current,result:j.result,frames:frames.length};
+   urlRef.current='';onAnalyzed(v);
+  }catch(er:any){
+   if(!alive.current)return;
+   const m=er.message;
+   setAiErr(['decode','timeout','seek'].includes(m)?'This browser couldn’t read frames from this video. MP4 (H.264) works best; try another file or device.':m==='short'?'This video is too short (under 1 second) to analyze.':m);
+  }finally{if(alive.current)setPhase('idle')}
  }
  const dur=(d:number)=>Math.floor(d/60)+':'+String(Math.floor(d%60)).padStart(2,'0');
  const FE=({m}:{m:string})=>m?<div className="fe" role="alert">⚠ {m}</div>:null;
- return <div className="w"><h2>Upload Video</h2>
- <Note>🔒 <b>Local selection only.</b> Choosing a video here only loads it in your browser for preview. Nothing is uploaded, saved or analyzed in this version.</Note>
- {done&&<Note k="ok">✅ <b>Video selected on this device only.</b> “{done.name}” ({done.kind}, {done.angle}) has <b>not</b> been uploaded to a server and no analysis has been run. It is held in this browser tab’s memory for now and will be gone if you refresh or close the page. Uploading and analysis need a backend that isn’t connected yet.
-  <div className="row" style={{marginTop:10}}><a className="btn s" style={{padding:'8px 14px',fontSize:14}} href="#dashboard">View in dashboard</a><a className="btn s" style={{padding:'8px 14px',fontSize:14}} href="#report">See demo report</a></div></Note>}
+ return <div className="w"><h2>Analyze Video</h2>
+ <Note>🔒 <b>What gets sent:</b> only {N} still frames (small images) sampled from your video are sent to the AI service for feedback. Your full video stays on this device and isn’t uploaded or saved.</Note>
  <form onSubmit={submit} className="card" noValidate>
   <label>1. Analysis type</label>
-  <div className="seg">{(['batting','bowling'] as Kind[]).map(k=><button type="button" aria-pressed={kind===k} key={k} className={kind===k?'on':''} onClick={()=>setKind(k)}>{k==='batting'?'🏏 Batting Analysis':'🎯 Bowling Analysis'}</button>)}</div>
+  <div className="seg">{(['batting','bowling'] as Kind[]).map(k=><button type="button" disabled={busy} aria-pressed={kind===k} key={k} className={kind===k?'on':''} onClick={()=>setKind(k)}>{k==='batting'?'🏏 Batting Analysis':'🎯 Bowling Analysis'}</button>)}</div>
   <FE m={e.kind}/>
   <label>2. Camera angle</label>
-  <div className="seg">{['Side View','Front View','Rear View'].map(a=><button type="button" aria-pressed={angle===a} key={a} className={angle===a?'on':''} onClick={()=>setAngle(a)}>{a}</button>)}</div>
+  <div className="seg">{['Side View','Front View','Rear View'].map(a=><button type="button" disabled={busy} aria-pressed={angle===a} key={a} className={angle===a?'on':''} onClick={()=>setAngle(a)}>{a}</button>)}</div>
   <FE m={e.angle}/>
   <label>3. Video file</label>
   {!file&&<div className={'drop'+(over?' over':'')} role="button" tabIndex={0} aria-label="Choose a video file" onClick={()=>ref.current?.click()} onKeyDown={ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();ref.current?.click()}}} onDragOver={ev=>{ev.preventDefault();setOver(true)}} onDragLeave={()=>setOver(false)} onDrop={ev=>{ev.preventDefault();setOver(false);pick(ev.dataTransfer.files)}}>
-   <div className="ico">📹</div><b>Drag &amp; drop a video, or tap to browse</b><div className="mut" style={{fontSize:14}}>MP4, MOV or WebM · up to {MAX_MB} MB</div></div>}
+   <div className="ico">📹</div><b>Drag &amp; drop a video, or tap to browse</b><div className="mut" style={{fontSize:14}}>MP4, MOV or WebM · up to {MAX_MB} MB · 5–30 seconds works best</div></div>}
   <input ref={ref} type="file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm" hidden onChange={ev=>pick(ev.target.files)}/>
   {fileErr&&<Note k="err">{fileErr}</Note>}
   {info&&<Note>{info}</Note>}
@@ -362,81 +388,88 @@ function Upload({onPrepared}:{onPrepared:(v:Vid)=>void}){
   {file&&<div style={{marginTop:6}}>
    {url&&!noPreview&&<video src={url} controls playsInline preload="metadata" onLoadedMetadata={ev=>{const v=ev.currentTarget;setMeta({d:v.duration,w:v.videoWidth,h:v.videoHeight});setLoading(false)}} onError={()=>{setNoPreview(true);setLoading(false)}}/>}
    {loading&&<div className="mut" style={{fontSize:14,marginTop:8}} role="status"><span className="spin"/>Loading preview…</div>}
-   {noPreview&&<Note>This browser can’t preview this video (some MOV/HEVC files only play on Apple devices). The file is still selected and valid, so you can continue.</Note>}
+   {noPreview&&<Note>This browser can’t preview this video (some MOV/HEVC files only play on Apple devices). Analysis may not work for it either.</Note>}
    <p style={{margin:'10px 0 2px',wordBreak:'break-all'}}><b>{file.name}</b></p>
    <div className="mut" style={{fontSize:14}}>{mb(file.size)}{meta&&isFinite(meta.d)?` · ${dur(meta.d)}`:''}{meta&&meta.w?` · ${meta.w}×${meta.h}`:''}</div>
-   <button type="button" className="btn s" style={{marginTop:10,padding:'8px 14px',fontSize:14}} onClick={clear}>✕ Remove video</button></div>}
-  <label style={{display:'flex',gap:10,alignItems:'flex-start',fontWeight:400}}><input type="checkbox" checked={consent} onChange={ev=>setConsent(ev.target.checked)} style={{marginTop:5,width:20,height:20}}/>
-   <span>4. I consent to this video being processed for technique analysis once that feature is available. I understand nothing is uploaded or processed today.</span></label>
+   <button type="button" className="btn s" disabled={busy} style={{marginTop:10,padding:'8px 14px',fontSize:14}} onClick={clear}>✕ Remove video</button></div>}
+  <label style={{display:'flex',gap:10,alignItems:'flex-start',fontWeight:400}}><input type="checkbox" disabled={busy} checked={consent} onChange={ev=>setConsent(ev.target.checked)} style={{marginTop:5,width:20,height:20}}/>
+   <span>4. I consent to {N} still frames from this video being sent to a third-party AI service to generate feedback. I understand AI Cricket Guru doesn’t store the frames or the video.</span></label>
   <FE m={e.consent}/>
-  <button className="btn" style={{marginTop:16,width:'100%'}} type="submit">Prepare Analysis</button>
+  {phase==='extracting'&&<div className="mut" role="status" style={{marginTop:12}}><span className="spin"/>Reading frame {prog} of {N} from your video…</div>}
+  {phase==='analyzing'&&<div className="mut" role="status" style={{marginTop:12}}><span className="spin"/>The AI is reviewing your frames. This can take up to a minute.</div>}
+  {aiErr&&<Note k="err">{aiErr}</Note>}
+  <button className="btn" style={{marginTop:16,width:'100%'}} type="submit" disabled={busy}>{busy?'Working…':aiErr?'Try again':'Analyze with AI'}</button>
  </form></div>;
 }
 
-function Dashboard({vids}:{vids:Vid[]}){
- const [tab,setTab]=useState<'all'|Kind|'progress'>('all');
- const mine=vids.filter(v=>!v.sample);
+function Dashboard({vids,onOpen}:{vids:Vid[];onOpen:(id:string)=>void}){
+ const [tab,setTab]=useState<'all'|Kind>('all');
  const list=vids.filter(v=>tab==='all'||v.kind===tab);
  return <div className="w"><h2>Player Dashboard</h2>
- <Note>Sample videos below are marked <b>SAMPLE</b>. Statuses are placeholders; no real processing happens. Sign-in will be added with Supabase Auth. Videos you select are held in this tab’s memory only and disappear on refresh.</Note>
- <div className="seg" style={{marginBottom:14}}>{([['all','All'],['batting','Batting'],['bowling','Bowling'],['progress','Progress']] as [any,string][]).map(([k,l])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}</div>
- {tab==='progress'?<div className="card"><h3>Progress history <Demo/></h3><div className="hist">{[40,48,45,60,66,72].map((h,i)=><div key={i} style={{height:h+'%'}}/>)}</div>
-  <p className="mut">Illustrative chart with made-up values. Real progress tracking needs saved analyses.</p></div>
- :<>{mine.length===0&&tab==='all'&&<Note>📭 No videos of your own yet. <a href="#upload" style={{color:'var(--g)'}}>Prepare your first video</a>.</Note>}
- {list.length===0?<Note>No videos in this category.</Note>:
+ <Note>Your analyses from this visit are listed here. They are kept in this tab’s memory only and disappear on refresh. Saved history will need sign-in, which isn’t built yet.</Note>
+ <div className="seg" style={{marginBottom:14}}>{([['all','All'],['batting','Batting'],['bowling','Bowling']] as [any,string][]).map(([k,l])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}</div>
+ {vids.length===0?<Note>📭 No analyses yet. <a href="#upload" style={{color:'var(--g)'}}>Analyze your first video</a>.</Note>:
+ list.length===0?<Note>No videos in this category.</Note>:
  <div className="grid">{list.map(v=><div className="card" key={v.id}>
   <div className="ico">{v.kind==='batting'?'🏏':'🎯'}</div><b style={{wordBreak:'break-all'}}>{v.name}</b>
   <div className="mut" style={{fontSize:14}}>{v.kind} · {v.angle} · {mb(v.size)} · {v.date}</div>
-  <div className="row" style={{margin:'8px 0'}}>{v.sample&&<Demo t="SAMPLE"/>}<Status s={v.status}/></div>
-  <a className="btn s" href="#report" style={{fontSize:14,padding:'8px 14px'}}>View demo report</a></div>)}</div>}</>}
+  <div className="row" style={{margin:'8px 0'}}><Status s={v.status}/></div>
+  <button className="btn s" style={{fontSize:14,padding:'8px 14px'}} onClick={()=>onOpen(v.id)}>View report</button></div>)}</div>}
  </div>;
 }
 
-function Report({latest,}:{latest?:Vid}){
- const B:[string,number,string][]=[['Head position over front knee',78,'Stable'],['Front shoulder alignment',64,'Needs work'],['Weight transfer',71,'Good'],['Backlift height',58,'Needs work']];
- return <div className="w"><h2>Analysis Report <Demo/></h2>
- <Note>⚠️ <b>DEMO DATA.</b> Every score and finding below is a made-up example. None are measurements of your video.</Note>
+function Report({vid}:{vid?:Vid}){
+ if(!vid||!vid.result)return <div className="w"><h2>Analysis Report</h2><Note>📭 No analysis yet. <a href="#upload" style={{color:'var(--g)'}}>Analyze a video</a> to see your report here.</Note></div>;
+ const r=vid.result;
+ const chip=(s:string)=>s==='good'?<span className="tag g">GOOD</span>:s==='needs_work'?<span className="tag">NEEDS WORK</span>:<span className="tag n">UNCLEAR</span>;
+ return <div className="w"><h2>Analysis Report <span className="tag g">AI-GENERATED</span></h2>
+ <Note>🤖 Generated by AI from {vid.frames||'a few'} still frames of your video. These are observations, not exact measurements, and don’t replace a coach.</Note>
+ {r.visibility!=='good'&&<Note>⚠️ Visibility was <b>{r.visibility}</b>, so this feedback may be incomplete or unreliable. Try a clearer video with the player fully in frame.</Note>}
+ <div className="card" style={{marginBottom:14}}><h3>Summary</h3><p>{r.summary}</p><div className="mut" style={{fontSize:14}}>{vid.kind} · {vid.angle}</div></div>
  <div className="cols">
-  <div className="card"><h3>Video playback</h3>{latest?.url?<><video src={latest.url} controls playsInline/><p className="mut">{latest.name}</p></>:<div className="drop" style={{cursor:'default'}}><div className="ico">🎞️</div><p className="mut">No video prepared yet in this session.</p></div>}</div>
-  <div className="card"><h3>Body-position indicators <Demo/></h3>{B.map(([l,v,s])=><div key={l} style={{marginBottom:10}}><div className="row" style={{justifyContent:'space-between',fontSize:14}}><span>{l}</span><span className="mut">{v}/100 · {s}</span></div><div className="bar"><i style={{width:v+'%'}}/></div></div>)}</div>
-  <div className="card"><h3>Technique observations <Demo/></h3><ul><li>Balanced stance at the crease.</li><li>Head stays still through contact.</li><li>Follow-through finishes high and open.</li></ul></div>
-  <div className="card"><h3>Improvement areas <Demo/></h3><ul><li>Front shoulder tends to open early.</li><li>Backlift could be more consistent.</li></ul></div>
-  <div className="card"><h3>Recommended drills <Demo/></h3><ul><li>Shadow batting with a mirror, 3 × 10</li><li>Tee drives focusing on front-foot alignment</li><li>One-leg balance holds, 3 × 30 s</li></ul></div></div>
+  <div className="card"><h3>Video playback</h3>{vid.url?<><video src={vid.url} controls playsInline/><p className="mut" style={{wordBreak:'break-all'}}>{vid.name}</p></>:<Note>Playback isn’t available for this video.</Note>}</div>
+  <div className="card"><h3>Technique observations</h3>{r.observations.length===0?<p className="mut">None reported.</p>:<ul>{r.observations.map((o,i)=><li key={i}><b>{o.title}.</b> {o.detail}</li>)}</ul>}</div>
+  <div className="card"><h3>Body-position indicators</h3>{r.body_position.length===0?<p className="mut">None reported.</p>:r.body_position.map((b,i)=><div className="li" key={i} style={{alignItems:'flex-start'}}><div><b>{b.area}</b><div className="mut" style={{fontSize:14}}>{b.note}</div></div>{chip(b.status)}</div>)}</div>
+  <div className="card"><h3>Potential improvement areas</h3>{r.improvements.length===0?<p className="mut">None reported.</p>:<ul>{r.improvements.map((x,i)=><li key={i}>{x}</li>)}</ul>}</div>
+  <div className="card"><h3>Recommended practice drills</h3>{r.drills.length===0?<p className="mut">None reported.</p>:<ul>{r.drills.map((d,i)=><li key={i}><b>{d.name}.</b> {d.how}</li>)}</ul>}</div>
+  {r.limitations&&<div className="card"><h3>Limitations</h3><p className="mut">{r.limitations}</p></div>}</div>
  <p><a className="btn" href="#upload">Analyze another video</a></p></div>;
 }
 
 function Coach(){
- const [msgs,setMsgs]=useState<{me:boolean;t:string}[]>([{me:false,t:'👋 Demo mode: no AI is connected yet. Replies here are fixed placeholders, not real coaching.'}]);
- const [q,setQ]=useState(''),[err,setErr]=useState('');const end=useRef<HTMLDivElement>(null);
- useEffect(()=>{end.current?.scrollIntoView({block:'nearest'})},[msgs]);
- function send(text:string){
-  const t=text.trim();if(!t)return setErr('Please type a question.');if(t.length>300)return setErr('Keep questions under 300 characters.');
-  setErr('');setQ('');setMsgs(m=>[...m,{me:true,t},{me:false,t:'[DEMO] AI coaching isn’t connected yet, so I can’t answer this. Once a secure backend is added, real technique guidance will appear here.'}]);
+ const [msgs,setMsgs]=useState<{me:boolean;t:string}[]>([{me:false,t:'👋 Hi! Ask me a cricket technique or practice question. I’m an AI, so double-check anything important with a coach. I can’t see your videos in this chat.'}]);
+ const [q,setQ]=useState(''),[err,setErr]=useState(''),[busy,setBusy]=useState(false);const end=useRef<HTMLDivElement>(null);
+ useEffect(()=>{end.current?.scrollIntoView({block:'nearest'})},[msgs,busy]);
+ async function send(text:string){
+  const t=text.trim();if(busy)return;
+  if(!t)return setErr('Please type a question.');if(t.length>300)return setErr('Keep questions under 300 characters.');
+  setErr('');setQ('');setBusy(true);setMsgs(m=>[...m,{me:true,t}]);
+  try{const j=await callAI({mode:'coach',question:t});if(!j?.answer)throw new Error('The AI returned an empty answer. Please try again.');setMsgs(m=>[...m,{me:false,t:j.answer}])}
+  catch(er:any){setErr(er.message)}finally{setBusy(false)}
  }
- return <div className="w"><h2>AI Coach <Demo t="DEMO INTERFACE"/></h2>
- <Note>This chat is a UI preview. No questions are sent anywhere.</Note>
- <div className="card"><div className="chat" aria-live="polite">{msgs.map((m,i)=><div key={i} className={'msg'+(m.me?' me':'')}>{m.t}</div>)}<div ref={end}/></div>
-  <div className="row" style={{margin:'10px 0'}}>{['How do I fix my head position?','Best drill for a straighter drive?'].map(s=><button key={s} className="btn s" style={{fontSize:13,padding:'6px 10px'}} onClick={()=>send(s)}>{s}</button>)}</div>
+ return <div className="w"><h2>AI Coach <span className="tag g">AI-POWERED</span></h2>
+ <Note>Your question is sent to a third-party AI service to generate an answer. Don’t include personal details. Answers are general guidance, not medical advice.</Note>
+ <div className="card"><div className="chat" aria-live="polite">{msgs.map((m,i)=><div key={i} className={'msg'+(m.me?' me':'')} style={{whiteSpace:'pre-wrap'}}>{m.t}</div>)}{busy&&<div className="msg mut" role="status"><span className="spin"/>Thinking…</div>}<div ref={end}/></div>
+  <div className="row" style={{margin:'10px 0'}}>{['How do I fix my head position?','Best drill for a straighter drive?'].map(s=><button key={s} className="btn s" disabled={busy} style={{fontSize:13,padding:'6px 10px'}} onClick={()=>send(s)}>{s}</button>)}</div>
   {err&&<Note k="err">{err}</Note>}
-  <form className="row" onSubmit={e=>{e.preventDefault();send(q)}}><input type="text" value={q} onChange={e=>setQ(e.target.value)} placeholder="Ask a technique question…" aria-label="Question"/><button className="btn" type="submit">Send</button></form></div></div>;
+  <form className="row" onSubmit={e=>{e.preventDefault();send(q)}}><input type="text" value={q} maxLength={300} onChange={e=>setQ(e.target.value)} placeholder="Ask a technique question…" aria-label="Question"/><button className="btn" type="submit" disabled={busy}>{busy?'…':'Send'}</button></form></div></div>;
 }
 
 function About(){
  return <div className="w"><h2>About AI Cricket Guru</h2>
  <div className="card"><p>Our mission is to help aspiring cricketers improve through technology. Great coaching shouldn’t depend on where you live or what you can afford.</p>
  <p>We’re building for players across India, from city academies to small-town grounds, with a phone-friendly experience designed for modest connections.</p>
- <p className="mut">Status: early preview. The interface is ready; video storage, accounts and AI analysis are planned and not yet live.</p></div></div>;
+ <p className="mut">Status: beta. AI feedback is generated from a few still frames of your video and is guidance, not a replacement for a coach. Accounts and saved history are planned.</p></div></div>;
 }
 
 /* ---- Supabase visit logging (visit only) ----
    Publishable key is designed to be public. NEVER put a service_role/secret key here. */
 const SUPABASE_URL='https://aiezvuftplbjosvlgcwu.supabase.co';
 const SUPABASE_KEY='sb_publishable_ljVOr9vPT25b-_SUuwxSog_wRLQQLJO';
-function visitorId():string|null{try{let v=localStorage.getItem('cg_vid');if(!v){v=crypto.randomUUID();localStorage.setItem('cg_vid',v)}return v}catch{return null}}
 async function logVisit(page:string){
  try{await fetch(SUPABASE_URL+'/rest/v1/visits',{method:'POST',
   headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
-  body:JSON.stringify({page:page.slice(0,50),referrer:(document.referrer||'').slice(0,300)||null,language:(navigator.language||'').slice(0,20)||null,screen_width:window.innerWidth,visitor_id:visitorId()})});
+  body:JSON.stringify({page:page.slice(0,50),referrer:(document.referrer||'').slice(0,300)||null,language:(navigator.language||'').slice(0,20)||null,screen_width:window.innerWidth})});
  }catch{/* analytics must never break the app */}
 }
 const getConsent=():string|null=>{try{return localStorage.getItem('cg_consent')}catch{return null}};
@@ -449,9 +482,10 @@ function Consent({value,onChoose}:{value:string|null;onChoose:(v:string)=>void})
 
 function App(){
  const get=():Route=>{const h=location.hash.slice(1) as Route;return ['home','upload','dashboard','report','coach','about','admin'].includes(h)?h:'home'};
- const [route,setRoute]=useState<Route>(get()),[vids,setVids]=useState<Vid[]>(SAMPLE);
+ const [route,setRoute]=useState<Route>(get()),[vids,setVids]=useState<Vid[]>([]),[sel,setSel]=useState<string|null>(null);
  useEffect(()=>{const f=()=>{if(location.hash==='#features'){document.getElementById('features')?.scrollIntoView({behavior:'smooth'});setRoute('home');return}setRoute(get());window.scrollTo(0,0)};addEventListener('hashchange',f);return()=>removeEventListener('hashchange',f)},[]);
- const latest=vids.find(v=>!v.sample);
+ const cur=vids.find(v=>v.id===sel)||vids[0];
+ const open=(id:string)=>{setSel(id);location.hash='report'};
  const [site,setSite]=useState<Site>({status:'loading',features:[],reviews:[],announcement:''});
  const reload=()=>{loadSite().then(setSite)};
  useEffect(()=>{reload()},[]);
@@ -459,10 +493,10 @@ function App(){
  const choose=(v:string)=>{try{localStorage.setItem('cg_consent',v)}catch{}setConsent(v)};
  useEffect(()=>{if(consent==='yes'&&route!=='admin')logVisit(route)},[route,consent]);
  return <><Nav route={route}/>{site.announcement&&<div className="ann" role="status">📢 {site.announcement}</div>}
-  {route==='home'&&<Home site={site}/>}{route==='upload'&&<Upload onPrepared={v=>setVids(a=>[v,...a])}/>}
-  {route==='dashboard'&&<Dashboard vids={vids}/>}{route==='report'&&<Report latest={latest}/>}
+  {route==='home'&&<Home site={site}/>}{route==='upload'&&<Upload onAnalyzed={v=>{setVids(a=>[v,...a]);setSel(v.id);location.hash='report'}}/>}
+  {route==='dashboard'&&<Dashboard vids={vids} onOpen={open}/>}{route==='report'&&<Report vid={cur}/>}
   {route==='coach'&&<Coach/>}{route==='admin'&&<Admin onChange={reload}/>}{route==='about'&&<About/>}
-  <footer>© AI Cricket Guru · Preview build · AI analysis is under development · <a href="#admin" style={{color:'inherit'}}>Admin</a></footer><Consent value={consent} onChoose={choose}/></>;
+  <footer>© AI Cricket Guru · Beta · AI feedback is guidance, not a substitute for a coach · <a href="#admin" style={{color:'inherit'}}>Admin</a></footer><Consent value={consent} onChoose={choose}/></>;
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
