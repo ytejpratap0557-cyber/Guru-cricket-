@@ -1,5 +1,5 @@
 // Supabase Edge Function: AI technique analysis + coach chat.
-// The OpenAI key lives ONLY here as a secret (OPENAI_API_KEY). It is never sent to the browser.
+// The Anthropic (Claude) key lives ONLY here as a secret (ANTHROPIC_API_KEY). It is never sent to the browser.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -11,7 +11,7 @@ const CORS = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
 
-const MODEL = Deno.env.get("OPENAI_MODEL") ?? "gpt-4o"; // any vision-capable OpenAI chat model
+const MODEL = Deno.env.get("ANALYSIS_MODEL") ?? "claude-sonnet-5-5"; // Claude Sonnet 5.5
 const DAILY_CAP = Number(Deno.env.get("DAILY_CAP") ?? 50);          // all callers, per 24h
 const VIDEO_CAP = Number(Deno.env.get("CALLER_DAILY_CAP") ?? 3);    // video analyses per caller, per 24h
 const COACH_CAP = Number(Deno.env.get("COACH_DAILY_CAP") ?? 20);    // coach questions per caller, per 24h
@@ -50,30 +50,25 @@ function clean(o: any) {
   };
 }
 
-async function callModel(apiKey: string, system: string, content: unknown[], maxTokens: number, asJson = false) {
-  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+async function callModel(apiKey: string, system: string, content: unknown[], maxTokens: number) {
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: MODEL,
-      max_completion_tokens: maxTokens,
-      messages: [{ role: "system", content: system }, { role: "user", content }],
-      ...(asJson ? { response_format: { type: "json_object" } } : {}),
-    }),
+    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system, messages: [{ role: "user", content }] }),
   });
   if (!r.ok) {
-    console.error("openai error", r.status, (await r.text()).slice(0, 300));
+    console.error("anthropic error", r.status, (await r.text()).slice(0, 300));
     throw new Error("upstream");
   }
   const j = await r.json();
-  return j.choices?.[0]?.message?.content ?? "";
+  return (j.content ?? []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "POST") return json({ error: "method", message: "Method not allowed." }, 405);
 
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return json({ error: "not_configured", message: "AI is not configured yet." }, 503);
 
   let body: any;
@@ -95,7 +90,7 @@ Deno.serve(async (req) => {
         return json({ error: "bad_request", message: "Invalid frame data." }, 400);
       const t = Number(times[i]);
       content.push({ type: "text", text: `Frame ${i + 1} of ${frames.length}${isFinite(t) ? ` (about ${t.toFixed(1)}s into the video)` : ""}` });
-      content.push({ type: "image_url", image_url: { url: "data:image/jpeg;base64," + f, detail: "auto" } });
+      content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: f } });
     }
     content.push({ type: "text", text: `Analysis type: ${kind}. Camera angle: ${angle}. Please analyse the technique.` });
   } else if (mode === "coach") {
@@ -131,7 +126,7 @@ Deno.serve(async (req) => {
       const answer = S(await callModel(apiKey, COACH_SYSTEM, content, 500), 1500);
       return json({ answer });
     }
-    const text = await callModel(apiKey, VIDEO_SYSTEM, content, 1800, true);
+    const text = await callModel(apiKey, VIDEO_SYSTEM, content, 1800);
     const a = text.indexOf("{"), b = text.lastIndexOf("}");
     if (a < 0 || b <= a) throw new Error("parse");
     return json({ result: clean(JSON.parse(text.slice(a, b + 1))) });
