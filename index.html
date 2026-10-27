@@ -283,13 +283,19 @@ function Admin({onChange}:{onChange:()=>void}){
    <p className="mut" style={{fontSize:13}}>Only accounts listed as admins can make changes. This is enforced by the database, not just this screen.</p></form></div>;
 }
 
-/* ---- AI service (Supabase Edge Function; the AI key lives only on the server) ---- */
+/* ---- AI service: a Netlify Function (netlify/functions/ask-ai.mjs) calls Google Gemini.
+   The Gemini key lives only in Netlify’s environment variables, never in this file. ---- */
 async function callAI(body:any):Promise<any>{
  let r:Response;
- try{r=await fetch(SUPABASE_URL+'/functions/v1/analyze-video',{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY},body:JSON.stringify(body)})}
+ try{r=await fetch('/.netlify/functions/ask-ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
  catch{throw new Error('Could not reach the AI service. Check your internet connection and try again.')}
  let j:any=null;try{j=await r.json()}catch{}
- if(!r.ok)throw new Error(r.status===404?'The AI service isn’t deployed yet.':j?.message||`AI service error (${r.status}).`);
+ if(!r.ok){
+  if(j?.message)throw new Error(j.message);
+  if(r.status===404)throw new Error('The AI service isn’t available on this site yet. The site owner needs to deploy the Netlify function.');
+  if(r.status===502||r.status===504)throw new Error('The AI took too long to respond. Please try again, or use a shorter video.');
+  throw new Error(`AI service error (${r.status}). Please try again.`);
+ }
  return j;
 }
 
@@ -393,7 +399,7 @@ function Upload({onAnalyzed}:{onAnalyzed:(v:Vid)=>void}){
    <div className="mut" style={{fontSize:14}}>{mb(file.size)}{meta&&isFinite(meta.d)?` · ${dur(meta.d)}`:''}{meta&&meta.w?` · ${meta.w}×${meta.h}`:''}</div>
    <button type="button" className="btn s" disabled={busy} style={{marginTop:10,padding:'8px 14px',fontSize:14}} onClick={clear}>✕ Remove video</button></div>}
   <label style={{display:'flex',gap:10,alignItems:'flex-start',fontWeight:400}}><input type="checkbox" disabled={busy} checked={consent} onChange={ev=>setConsent(ev.target.checked)} style={{marginTop:5,width:20,height:20}}/>
-   <span>4. I consent to {N} still frames from this video being sent to a third-party AI service to generate feedback. I understand AI Cricket Guru doesn’t store the frames or the video.</span></label>
+   <span>4. I consent to {N} still frames from this video being sent to Google’s Gemini AI to generate feedback. I understand AI Cricket Guru doesn’t store the frames or the video.</span></label>
   <FE m={e.consent}/>
   {phase==='extracting'&&<div className="mut" role="status" style={{marginTop:12}}><span className="spin"/>Reading frame {prog} of {N} from your video…</div>}
   {phase==='analyzing'&&<div className="mut" role="status" style={{marginTop:12}}><span className="spin"/>The AI is reviewing your frames. This can take up to a minute.</div>}
@@ -448,7 +454,7 @@ function Coach(){
   catch(er:any){setErr(er.message)}finally{setBusy(false)}
  }
  return <div className="w"><h2>AI Coach <span className="tag g">AI-POWERED</span></h2>
- <Note>Your question is sent to a third-party AI service to generate an answer. Don’t include personal details. Answers are general guidance, not medical advice.</Note>
+ <Note>Your question is sent to Google’s Gemini AI to generate an answer. Don’t include personal details. Answers are general guidance, not medical advice.</Note>
  <div className="card"><div className="chat" aria-live="polite">{msgs.map((m,i)=><div key={i} className={'msg'+(m.me?' me':'')} style={{whiteSpace:'pre-wrap'}}>{m.t}</div>)}{busy&&<div className="msg mut" role="status"><span className="spin"/>Thinking…</div>}<div ref={end}/></div>
   <div className="row" style={{margin:'10px 0'}}>{['How do I fix my head position?','Best drill for a straighter drive?'].map(s=><button key={s} className="btn s" disabled={busy} style={{fontSize:13,padding:'6px 10px'}} onClick={()=>send(s)}>{s}</button>)}</div>
   {err&&<Note k="err">{err}</Note>}
