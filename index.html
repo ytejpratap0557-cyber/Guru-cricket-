@@ -57,7 +57,7 @@ ul{padding-left:18px;margin:6px 0}li{margin:4px 0}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
 <script type="text/plain" id="src">
 const {useState,useEffect,useRef}=React;
-type Route='home'|'upload'|'dashboard'|'report'|'coach'|'about'|'admin';
+type Route='home'|'upload'|'dashboard'|'report'|'coach'|'about'|'admin'|'account';
 type Kind='batting'|'bowling';
 type Status='Analyzed'|'Analysis failed';
 interface Ai{visibility:'good'|'limited'|'poor';summary:string;observations:{title:string;detail:string}[];body_position:{area:string;status:string;note:string}[];improvements:string[];drills:{name:string;how:string}[];limitations:string}
@@ -73,7 +73,7 @@ const Note=({k='',children}:{k?:string;children:any})=><div className={'note '+k
 const Status=({s}:{s:Status})=><span className={'tag '+(s==='Analyzed'?'g':'r')}>{s.toUpperCase()}</span>;
 
 function Nav({route}:{route:Route}){
- const L:[Route,string][]=[['home','Home'],['upload','Upload'],['dashboard','Dashboard'],['report','Report'],['coach','AI Coach'],['about','About']];
+ const L:[Route,string][]=[['home','Home'],['upload','Upload'],['dashboard','Dashboard'],['report','Report'],['coach','AI Coach'],['account','Account'],['about','About']];
  return <nav><div className="w"><div className="logo" onClick={()=>location.hash='home'}>🏏 AI Cricket <b>Guru</b></div>
  <div className="links">{L.map(([r,l])=><a key={r} href={'#'+r} className={route===r?'on':''}>{l}</a>)}</div></div></nav>;
 }
@@ -223,8 +223,8 @@ function UsersTab({token,out}:{token:string;out:(m:string)=>void}){
 }
 
 function DbTab({token,out}:{token:string;out:(m:string)=>void}){
- const T=['features','reviews','site_settings','visits','admins'];
- const order:Record<string,string>={visits:'&order=created_at.desc',reviews:'&order=created_at.desc',features:'&order=sort.asc'};
+ const T=['features','reviews','plans','orders','credit_ledger','site_settings','visits','admins'];
+ const order:Record<string,string>={visits:'&order=created_at.desc',reviews:'&order=created_at.desc',features:'&order=sort.asc',plans:'&order=sort.asc',orders:'&order=created_at.desc',credit_ledger:'&order=created_at.desc'};
  const [t,setT]=useState('features'),[custom,setCustom]=useState(''),[cerr,setCerr]=useState('');
  const [rows,setRows]=useState<any[]|null>(null),[total,setTotal]=useState(''),[err,setErr]=useState('');
  const load=()=>{setRows(null);setErr('');
@@ -244,6 +244,29 @@ function DbTab({token,out}:{token:string;out:(m:string)=>void}){
   {rows===null&&!err?<p className="mut" role="status"><span className="spin"/>Loading…</p>:rows&&<DataTable rows={rows}/>}</div>;
 }
 
+function PlansTab({token,out,onChange}:TabP){
+ const {rows,err,load}=useRows('/rest/v1/plans?select=*&order=sort.asc,created_at.asc',token,out);
+ const {busy,m,run}=useAct(out,()=>{load();onChange()});
+ const [name,setName]=useState(''),[credits,setCredits]=useState('10'),[price,setPrice]=useState('99'),[ve,setVe]=useState('');
+ function add(ev:any){ev.preventDefault();
+  const c=Number(credits),p=Number(price);
+  if(!name.trim()||name.length>40)return setVe('Plan name is required (max 40 characters).');
+  if(!Number.isInteger(c)||c<1||c>1000)return setVe('Credits must be a whole number from 1 to 1000.');
+  if(!isFinite(p)||p<1||p>100000)return setVe('Price must be between ₹1 and ₹1,00,000.');
+  setVe('');run(async()=>{await api('/rest/v1/plans',{method:'POST',token,prefer:'return=minimal',body:{name:name.trim(),credits:c,amount_paise:Math.round(p*100),sort:((rows?.length||0)+1)*10}});setName('')},'Plan added.')}
+ return <div>
+  <form className="card" onSubmit={add} noValidate><h3>Add plan</h3>
+   <input className="f" placeholder="Plan name (e.g. Starter)" maxLength={40} value={name} onChange={e=>setName(e.target.value)}/>
+   <div className="row" style={{marginTop:8}}><input className="f" style={{flex:1,minWidth:120}} type="number" min={1} placeholder="Credits" value={credits} onChange={e=>setCredits(e.target.value)} aria-label="Credits"/><input className="f" style={{flex:1,minWidth:120}} type="number" min={1} placeholder="Price in ₹" value={price} onChange={e=>setPrice(e.target.value)} aria-label="Price in rupees"/></div>
+   {ve&&<div className="fe" role="alert">⚠ {ve}</div>}<button className="btn" style={{marginTop:10}} disabled={busy}>{busy?'Saving…':'Add plan'}</button></form>
+  <Msg m={m}/>{err&&<Note k="err">{err}</Note>}
+  {rows===null&&!err?<p className="mut" role="status"><span className="spin"/>Loading…</p>:rows&&rows.length===0?<Note>No plans yet.</Note>:
+  <div className="card" style={{marginTop:14}}>{rows?.map((p:any)=><div className="li" key={p.id}><div style={{minWidth:0}}><b>{p.name}</b> {!p.active&&<span className="tag r">HIDDEN</span>}<div className="mut" style={{fontSize:13}}>{p.credits} credits · {rupees(p.amount_paise)}</div></div>
+   <div className="row" style={{flexShrink:0}}><button className="btn s" disabled={busy} style={{padding:'6px 10px',fontSize:13}} onClick={()=>run(()=>api('/rest/v1/plans?id=eq.'+p.id,{method:'PATCH',token,body:{active:!p.active},prefer:'return=minimal'}),p.active?'Plan hidden.':'Plan shown.')}>{p.active?'Hide':'Show'}</button>
+   <button className="btn d" disabled={busy} style={{padding:'6px 10px',fontSize:13}} onClick={()=>{if(confirm(`Delete plan “${p.name}”? Past orders are kept.`))run(()=>api('/rest/v1/plans?id=eq.'+p.id,{method:'DELETE',token}),'Plan deleted.')}}>Delete</button></div></div>)}</div>}
+ </div>;
+}
+
 function Panel({s,out,onChange}:{s:Sess;out:(m:string)=>void;onChange:()=>void}){
  const [tab,setTab]=useState('features'),[admin,setAdmin]=useState<boolean|null>(null),[err,setErr]=useState('');
  useEffect(()=>{api('/rest/v1/admins?select=user_id',{token:s.token}).then(r=>setAdmin(r.data.length>0)).catch(e=>{if(e.status===401)out('Session expired. Please log in again.');else setErr(e.message)})},[]);
@@ -253,8 +276,8 @@ function Panel({s,out,onChange}:{s:Sess;out:(m:string)=>void;onChange:()=>void})
   {err&&<Note k="err">{err}</Note>}
   {admin===null&&!err&&<p className="mut" role="status"><span className="spin"/>Checking permissions…</p>}
   {admin===false&&<Note k="err"><b>This account is not an admin.</b> In Supabase SQL Editor run:<br/><code style={{wordBreak:'break-all'}}>insert into public.admins(user_id) select id from auth.users where email='{s.email}';</code></Note>}
-  {admin&&<><div className="seg" style={{marginBottom:14}}>{[['features','Features'],['reviews','Reviews'],['settings','Banner'],['visits','Visits'],['users','Users'],['db','Database']].map(([k,l])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}</div>
-   {tab==='features'&&<FeaturesTab {...P}/>}{tab==='reviews'&&<ReviewsTab {...P}/>}{tab==='settings'&&<SettingsTab {...P}/>}{tab==='visits'&&<VisitsTab token={s.token} out={out}/>}{tab==='users'&&<UsersTab token={s.token} out={out}/>}{tab==='db'&&<DbTab token={s.token} out={out}/>}</>}
+  {admin&&<><div className="seg" style={{marginBottom:14}}>{[['features','Features'],['reviews','Reviews'],['settings','Banner'],['plans','Plans'],['visits','Visits'],['users','Users'],['db','Database']].map(([k,l])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}</div>
+   {tab==='features'&&<FeaturesTab {...P}/>}{tab==='reviews'&&<ReviewsTab {...P}/>}{tab==='settings'&&<SettingsTab {...P}/>}{tab==='plans'&&<PlansTab {...P}/>}{tab==='visits'&&<VisitsTab token={s.token} out={out}/>}{tab==='users'&&<UsersTab token={s.token} out={out}/>}{tab==='db'&&<DbTab token={s.token} out={out}/>}</>}
  </div>;
 }
 
@@ -283,18 +306,123 @@ function Admin({onChange}:{onChange:()=>void}){
    <p className="mut" style={{fontSize:13}}>Only accounts listed as admins can make changes. This is enforced by the database, not just this screen.</p></form></div>;
 }
 
+/* ---- Player accounts (Supabase Auth). Only the logged-in player’s own rows are readable (RLS). ---- */
+interface PS{token:string;refresh:string;email:string;exp:number}
+let PSESS:PS|null=null;try{PSESS=JSON.parse(localStorage.getItem('cg_player')||'null')}catch{}
+const psL=new Set<()=>void>();
+function setPS(p:PS|null){PSESS=p;try{p?localStorage.setItem('cg_player',JSON.stringify(p)):localStorage.removeItem('cg_player')}catch{}psL.forEach(f=>f())}
+function usePS(){const [,f]=useState(0);useEffect(()=>{const l=()=>f(x=>x+1);psL.add(l);return()=>{psL.delete(l)}},[]);return PSESS}
+async function authCall(path:string,body:any){
+ const r=await fetch(SUPABASE_URL+path,{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
+ const j=await r.json().catch(()=>({}));
+ if(!r.ok)throw new Error(j.error_description||j.msg||j.message||'Request failed.');
+ return j;
+}
+const toPS=(j:any,email:string):PS=>({token:j.access_token,refresh:j.refresh_token,email,exp:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600)});
+async function freshToken():Promise<string|null>{
+ if(!PSESS)return null;
+ if(PSESS.exp-60>Date.now()/1000)return PSESS.token;
+ try{const j=await authCall('/auth/v1/token?grant_type=refresh_token',{refresh_token:PSESS.refresh});setPS(toPS(j,PSESS.email));return j.access_token}
+ catch{setPS(null);return null}
+}
+async function papi(path:string,o:{method?:string;body?:any}={}){
+ const t=await freshToken();
+ if(!t)throw Object.assign(new Error('Please log in again.'),{status:401});
+ return api(path,{...o,token:t});
+}
+function loadScript(src:string){return new Promise<void>((res,rej)=>{
+ if((window as any).Razorpay)return res();
+ const s=document.createElement('script');s.src=src;s.onload=()=>res();
+ s.onerror=()=>rej(new Error('Couldn’t load the payment window. Check your connection and try again.'));document.body.appendChild(s)})}
+const rupees=(p:number)=>'₹'+(p/100).toLocaleString('en-IN',{maximumFractionDigits:2});
+
+function Account(){
+ const ps=usePS();
+ const [mode,setMode]=useState<'login'|'signup'>('login'),[email,setEmail]=useState(''),[pw,setPw]=useState('');
+ const [busy,setBusy]=useState(false),[msg,setMsg]=useState<{k:string;t:string}|null>(null);
+ const [plans,setPlans]=useState<any[]|null>(null),[bal,setBal]=useState<number|null>(null),[orders,setOrders]=useState<any[]|null>(null),[perr,setPerr]=useState('');
+ const loadAll=()=>{
+  api('/rest/v1/plans?select=*&active=eq.true&order=sort.asc').then(r=>setPlans(r.data)).catch(e=>setPerr(e.message));
+  if(PSESS){
+   papi('/rest/v1/rpc/get_my_balance',{method:'POST',body:{}}).then(r=>setBal(r.data)).catch(()=>{});
+   papi('/rest/v1/orders?select=id,created_at,amount_paise,credits,status&order=created_at.desc&limit=10').then(r=>setOrders(r.data)).catch(()=>{});
+  }};
+ useEffect(()=>{loadAll()},[ps?.email]);
+ async function auth(ev:any){
+  ev.preventDefault();const em=email.trim();
+  if(!/^\S+@\S+\.\S+$/.test(em))return setMsg({k:'err',t:'Enter a valid email address.'});
+  if(pw.length<8)return setMsg({k:'err',t:'Password must be at least 8 characters.'});
+  setBusy(true);setMsg(null);
+  try{
+   if(mode==='signup'){
+    const j=await authCall('/auth/v1/signup',{email:em,password:pw});
+    if(j.access_token)setPS(toPS(j,em));else setMsg({k:'ok',t:'Account created. Check your email to confirm it, then log in.'});
+   }else{setPS(toPS(await authCall('/auth/v1/token?grant_type=password',{email:em,password:pw}),em))}
+   setPw('');
+  }catch(e:any){setMsg({k:'err',t:e.message})}finally{setBusy(false)}
+ }
+ async function buy(p:any){
+  setMsg(null);setBusy(true);
+  try{
+   const t=await freshToken();if(!t)throw new Error('Please log in again.');
+   const r=await fetch('/.netlify/functions/create-order',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify({plan_id:p.id})});
+   const o=await r.json().catch(()=>null);
+   if(!r.ok)throw new Error(o?.message||(r.status===404?'Payments aren’t available on this site yet.':'Couldn’t start the payment.'));
+   await loadScript('https://checkout.razorpay.com/v1/checkout.js');
+   const rz=new (window as any).Razorpay({
+    key:o.key_id,amount:o.amount,currency:o.currency,order_id:o.order_id,name:'AI Cricket Guru',
+    description:`${o.plan_name} · ${o.credits} credits`,prefill:{email:PSESS?.email},theme:{color:'#22c55e'},
+    modal:{ondismiss:()=>setBusy(false)},
+    handler:async(resp:any)=>{
+     setBusy(true);
+     try{
+      const t2=await freshToken();
+      const vr=await fetch('/.netlify/functions/verify-payment',{method:'POST',headers:{'Content-Type':'application/json',...(t2?{Authorization:'Bearer '+t2}:{})},body:JSON.stringify({razorpay_order_id:resp.razorpay_order_id,razorpay_payment_id:resp.razorpay_payment_id,razorpay_signature:resp.razorpay_signature})});
+      const vj=await vr.json().catch(()=>null);
+      if(vr.ok)setMsg({k:'ok',t:`Payment successful. ${o.credits} credits added.`});
+      else setMsg({k:vr.status===202||vr.status===500?'':'err',t:vj?.message||'We couldn’t confirm the payment yet. If money was deducted, credits are added automatically within a few minutes.'});
+     }catch{setMsg({k:'',t:'We couldn’t confirm the payment yet. If money was deducted, credits are added automatically within a few minutes. Refresh this page later.'})}
+     finally{setBusy(false);loadAll()}
+    }});
+   rz.on('payment.failed',(x:any)=>{setBusy(false);setMsg({k:'err',t:(x?.error?.description||'Payment failed.')+' If money was deducted, it is normally returned by your bank within a few days.'})});
+   rz.open();setBusy(false);
+  }catch(e:any){setMsg({k:'err',t:e.message});setBusy(false)}
+ }
+ if(!ps)return <div className="w"><h2>{mode==='login'?'Log in':'Create account'}</h2>
+  <Note>Log in to buy credits and run AI video analysis. Each analysis uses 1 credit.</Note>
+  <form className="card" style={{maxWidth:420}} onSubmit={auth} noValidate>
+   <label style={{marginTop:0}}>Email</label><input className="f" type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)}/>
+   <label>Password (8+ characters)</label><input className="f" type="password" autoComplete={mode==='login'?'current-password':'new-password'} value={pw} onChange={e=>setPw(e.target.value)}/>
+   {msg&&<Note k={msg.k}>{msg.t}</Note>}
+   <button className="btn" style={{marginTop:14,width:'100%'}} disabled={busy}>{busy?'Please wait…':mode==='login'?'Log in':'Sign up'}</button>
+   <p style={{textAlign:'center'}}><a href="#account" style={{color:'var(--g)'}} onClick={e=>{e.preventDefault();setMode(mode==='login'?'signup':'login');setMsg(null)}}>{mode==='login'?'New here? Create an account':'Already have an account? Log in'}</a></p></form></div>;
+ return <div className="w"><div className="row" style={{justifyContent:'space-between',alignItems:'center'}}><h2>My Account</h2><button className="btn s" style={{padding:'8px 14px',fontSize:14}} onClick={()=>setPS(null)}>Log out</button></div>
+  <div className="card" style={{marginBottom:14}}><div className="mut" style={{fontSize:14}}>Signed in as {ps.email}</div>
+   <p style={{margin:'6px 0'}}><b style={{fontSize:32}}>{bal===null?'…':bal}</b> <span className="mut">credits · 1 credit = 1 AI video analysis</span></p></div>
+  {msg&&<Note k={msg.k}>{msg.t}</Note>}
+  <h3>Buy credits</h3>
+  {perr&&<Note k="err">{perr}</Note>}
+  {plans===null&&!perr?<p className="mut" role="status"><span className="spin"/>Loading plans…</p>:plans&&plans.length===0?<Note>No plans are available right now.</Note>:
+  <div className="grid">{plans?.map((p:any)=><div className="card" key={p.id}><h3 style={{margin:'0 0 4px'}}>{p.name}</h3><div style={{fontSize:28,fontWeight:800}}>{rupees(p.amount_paise)}</div><p className="mut">{p.credits} AI analyses</p>
+   <button className="btn" style={{width:'100%'}} disabled={busy} onClick={()=>buy(p)}>{busy?'Please wait…':'Buy now'}</button></div>)}</div>}
+  <p className="mut" style={{fontSize:13}}>Payments are processed securely by Razorpay. We never see or store your card or UPI details. Credits are added only after the payment is verified on our server.</p>
+  <h3>Recent purchases</h3>
+  {orders===null?<p className="mut">Loading…</p>:orders.length===0?<Note>No purchases yet.</Note>:
+  <div className="card">{orders.map((o:any)=><div className="li" key={o.id}><div><b>{o.credits} credits</b> · {rupees(o.amount_paise)}<div className="mut" style={{fontSize:13}}>{new Date(o.created_at).toLocaleString()}</div></div><span className={'tag '+(o.status==='paid'?'g':o.status==='failed'?'r':'')}>{o.status==='created'?'NOT PAID':o.status.toUpperCase()}</span></div>)}</div>}
+  <p><button className="btn s" style={{fontSize:14,padding:'8px 14px'}} onClick={loadAll}>Refresh</button></p></div>;
+}
+
 /* ---- AI service: a Netlify Function (netlify/functions/ask-ai.mjs) calls Google Gemini.
    The Gemini key lives only in Netlify’s environment variables, never in this file. ---- */
-async function callAI(body:any):Promise<any>{
+async function callAI(body:any,token?:string|null):Promise<any>{
  let r:Response;
- try{r=await fetch('/.netlify/functions/ask-ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
+ const h:any={'Content-Type':'application/json'};if(token)h.Authorization='Bearer '+token;
+ try{r=await fetch('/.netlify/functions/ask-ai',{method:'POST',headers:h,body:JSON.stringify(body)})}
  catch{throw new Error('Could not reach the AI service. Check your internet connection and try again.')}
  let j:any=null;try{j=await r.json()}catch{}
  if(!r.ok){
-  if(j?.message)throw new Error(j.message);
-  if(r.status===404)throw new Error('The AI service isn’t available on this site yet. The site owner needs to deploy the Netlify function.');
-  if(r.status===502||r.status===504)throw new Error('The AI took too long to respond. Please try again, or use a shorter video.');
-  throw new Error(`AI service error (${r.status}). Please try again.`);
+  const m=j?.message||(r.status===404?'The AI service isn’t available on this site yet. The site owner needs to deploy the Netlify function.':r.status===502||r.status===504?'The AI took too long to respond. Please try again, or use a shorter video.':`AI service error (${r.status}). Please try again.`);
+  throw Object.assign(new Error(m),{code:j?.error});
  }
  return j;
 }
@@ -327,6 +455,8 @@ function Upload({onAnalyzed}:{onAnalyzed:(v:Vid)=>void}){
  const [phase,setPhase]=useState<'idle'|'extracting'|'analyzing'>('idle'),[prog,setProg]=useState(0),[aiErr,setAiErr]=useState('');
  const ref=useRef<HTMLInputElement>(null),urlRef=useRef(''),alive=useRef(true);
  const busy=phase!=='idle',N=8;
+ const ps=usePS(),[bal,setBal]=useState<number|null>(null),[noCred,setNoCred]=useState(false);
+ useEffect(()=>{if(ps)papi('/rest/v1/rpc/get_my_balance',{method:'POST',body:{}}).then(r=>setBal(r.data)).catch(()=>{})},[ps?.email]);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;if(urlRef.current)URL.revokeObjectURL(urlRef.current)}},[]);
  useEffect(()=>{if(!loading)return;const t=setTimeout(()=>setLoading(false),8000);return()=>clearTimeout(t)},[loading]);
  function clear(){
@@ -354,21 +484,23 @@ function Upload({onAnalyzed}:{onAnalyzed:(v:Vid)=>void}){
   file:tried&&!file?'Select a video file to continue.':'',
   consent:tried&&!consent?'Please confirm consent to continue.':''};
  async function submit(ev:any){
-  ev.preventDefault();setTried(true);setAiErr('');
+  ev.preventDefault();setTried(true);setAiErr('');setNoCred(false);
   if(!kind||!angle||!file||!consent||busy)return;
+  if(!ps)return setAiErr('Please log in to analyze a video.');
   if(!urlRef.current)return setAiErr('Your browser couldn’t open this video for analysis. Try another file.');
   try{
    setPhase('extracting');setProg(0);
    const {frames,times}=await extractFrames(urlRef.current,N,setProg);
    if(!alive.current)return;
    setPhase('analyzing');
-   const j=await callAI({mode:'video',kind,angle,frames,times});
+   const j=await callAI({mode:'video',kind,angle,frames,times},await freshToken());
    if(!j?.result)throw new Error('The AI returned an unexpected response. Please try again.');
    if(!alive.current)return;
    const v:Vid={id:'u'+Date.now(),name:file.name,kind,angle,size:file.size,date:new Date().toLocaleDateString(),status:'Analyzed',url:urlRef.current,result:j.result,frames:frames.length};
    urlRef.current='';onAnalyzed(v);
   }catch(er:any){
    if(!alive.current)return;
+   if(er.code==='no_credits')setNoCred(true);
    const m=er.message;
    setAiErr(['decode','timeout','seek'].includes(m)?'This browser couldn’t read frames from this video. MP4 (H.264) works best; try another file or device.':m==='short'?'This video is too short (under 1 second) to analyze.':m);
   }finally{if(alive.current)setPhase('idle')}
@@ -377,6 +509,8 @@ function Upload({onAnalyzed}:{onAnalyzed:(v:Vid)=>void}){
  const FE=({m}:{m:string})=>m?<div className="fe" role="alert">⚠ {m}</div>:null;
  return <div className="w"><h2>Analyze Video</h2>
  <Note>🔒 <b>What gets sent:</b> only {N} still frames (small images) sampled from your video are sent to the AI service for feedback. Your full video stays on this device and isn’t uploaded or saved.</Note>
+ {!ps?<Note>🔑 <a href="#account" style={{color:'var(--g)'}}>Log in or sign up</a> to run AI analysis. Each analysis uses 1 credit.</Note>
+  :<Note k="ok">💳 Signed in as {ps.email} · Credits: <b>{bal===null?'…':bal}</b> (1 per analysis) · <a href="#account" style={{color:'var(--g)'}}>Buy credits</a></Note>}
  <form onSubmit={submit} className="card" noValidate>
   <label>1. Analysis type</label>
   <div className="seg">{(['batting','bowling'] as Kind[]).map(k=><button type="button" disabled={busy} aria-pressed={kind===k} key={k} className={kind===k?'on':''} onClick={()=>setKind(k)}>{k==='batting'?'🏏 Batting Analysis':'🎯 Bowling Analysis'}</button>)}</div>
@@ -404,6 +538,7 @@ function Upload({onAnalyzed}:{onAnalyzed:(v:Vid)=>void}){
   {phase==='extracting'&&<div className="mut" role="status" style={{marginTop:12}}><span className="spin"/>Reading frame {prog} of {N} from your video…</div>}
   {phase==='analyzing'&&<div className="mut" role="status" style={{marginTop:12}}><span className="spin"/>The AI is reviewing your frames. This can take up to a minute.</div>}
   {aiErr&&<Note k="err">{aiErr}</Note>}
+  {noCred&&<Note><a href="#account" style={{color:'var(--g)'}}>Buy credits →</a></Note>}
   <button className="btn" style={{marginTop:16,width:'100%'}} type="submit" disabled={busy}>{busy?'Working…':aiErr?'Try again':'Analyze with AI'}</button>
  </form></div>;
 }
@@ -487,7 +622,7 @@ function Consent({value,onChoose}:{value:string|null;onChoose:(v:string)=>void})
 }
 
 function App(){
- const get=():Route=>{const h=location.hash.slice(1) as Route;return ['home','upload','dashboard','report','coach','about','admin'].includes(h)?h:'home'};
+ const get=():Route=>{const h=location.hash.slice(1) as Route;return ['home','upload','dashboard','report','coach','about','admin','account'].includes(h)?h:'home'};
  const [route,setRoute]=useState<Route>(get()),[vids,setVids]=useState<Vid[]>([]),[sel,setSel]=useState<string|null>(null);
  useEffect(()=>{const f=()=>{if(location.hash==='#features'){document.getElementById('features')?.scrollIntoView({behavior:'smooth'});setRoute('home');return}setRoute(get());window.scrollTo(0,0)};addEventListener('hashchange',f);return()=>removeEventListener('hashchange',f)},[]);
  const cur=vids.find(v=>v.id===sel)||vids[0];
@@ -501,7 +636,7 @@ function App(){
  return <><Nav route={route}/>{site.announcement&&<div className="ann" role="status">📢 {site.announcement}</div>}
   {route==='home'&&<Home site={site}/>}{route==='upload'&&<Upload onAnalyzed={v=>{setVids(a=>[v,...a]);setSel(v.id);location.hash='report'}}/>}
   {route==='dashboard'&&<Dashboard vids={vids} onOpen={open}/>}{route==='report'&&<Report vid={cur}/>}
-  {route==='coach'&&<Coach/>}{route==='admin'&&<Admin onChange={reload}/>}{route==='about'&&<About/>}
+  {route==='coach'&&<Coach/>}{route==='admin'&&<Admin onChange={reload}/>}{route==='account'&&<Account/>}{route==='about'&&<About/>}
   <footer>© AI Cricket Guru · Beta · AI feedback is guidance, not a substitute for a coach · <a href="#admin" style={{color:'inherit'}}>Admin</a></footer><Consent value={consent} onChoose={choose}/></>;
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);

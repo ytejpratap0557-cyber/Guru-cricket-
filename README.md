@@ -12,6 +12,9 @@ Mobile-first cricket coaching website (dark navy + green). Players can pick a ba
 | `supabase/migrations/002_admin_panel.sql` | `admins`, `features`, `reviews`, `site_settings` tables + Row Level Security. |
 | `supabase/migrations/003_admin_list_users.sql` | Admin-only function to list registered users. |
 | `supabase/migrations/004_analysis_usage.sql` | Legacy table from the earlier Supabase AI function (no longer used). |
+| `netlify/functions/create-order.mjs`, `verify-payment.mjs`, `razorpay-webhook.mjs` | Razorpay: create order, verify payment, webhook safety net. |
+| `netlify/lib/server.mjs` | Shared server helpers (reads secrets from Netlify env only). |
+| `supabase/migrations/005_credits_and_payments.sql` | Plans, orders, credit ledger + server-only credit functions. |
 | `netlify/functions/ask-ai.mjs` | Netlify Function that calls Google Gemini. The key lives only in Netlify’s environment variables. |
 | `supabase/make_admin.sql` | Grants admin to one existing Auth user. |
 
@@ -37,3 +40,15 @@ Video upload to private storage, saved player accounts and history, pose-estimat
 
 ## Roadmap
 Split `index.html` into a Vite + React + TypeScript project, add Supabase Storage for videos, and an analysis service behind a secure server.
+
+## Payments and credits (Razorpay)
+Players sign up (Supabase Auth), buy a plan, and each AI video analysis uses 1 credit (checked on the server in `ask-ai`; a failed analysis is refunded). AI Coach text questions stay free.
+
+Netlify environment variables (Site configuration → Environment variables):
+- `GEMINI_API_KEY`
+- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only secret; never put it in `index.html`)
+- Optional: `FREE_CREDITS` (free analyses for a new player, default 1), `GEMINI_MODEL`
+
+Razorpay webhook: `https://YOUR-SITE.netlify.app/.netlify/functions/razorpay-webhook`, event `order.paid`, secret = `RAZORPAY_WEBHOOK_SECRET`.
+Plans and prices are edited in Admin → Plans. Run `005_credits_and_payments.sql` before using payments.
